@@ -4,18 +4,22 @@ import { AssetsManager, WebXRInputSource } from "@babylonjs/core";
 import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 
 import { pfModule } from "./pfModule";
+import { Game } from "./index";
 
 export class Hands implements pfModule {
+  game: Game;
+
   private handMeshes: AbstractMesh[];
   private handClones: AbstractMesh[];
 
-  constructor() {
+  constructor(game: Game) {
+    this.game = game;
     this.handMeshes = [];
     this.handClones = [];
   }
 
-  public loadAssets(scene: Scene): void {
-    let assetsManager = new AssetsManager(scene);
+  public loadAssets(): void {
+    let assetsManager = new AssetsManager(this.game.scene);
     let handTask = assetsManager.addMeshTask(
       "hand task",
       "",
@@ -69,12 +73,14 @@ export class Hands implements pfModule {
 
   public onControllerRemoved(inputSource: WebXRInputSource): void {}
 
-  public processControllerInput(
-    rightController: WebXRInputSource,
-    leftController: WebXRInputSource
-  ): void {
+  public update(): void {}
+
+  public processController(): void {
     this.handClones.forEach((mesh) => (mesh.visibility = 0));
     this.handMeshes.forEach((mesh) => (mesh.visibility = 0));
+
+    let rightController = this.game.rightController;
+    let leftController = this.game.leftController;
 
     if (!rightController || !leftController) {
       return;

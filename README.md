@@ -8,6 +8,11 @@ To be changed
 
 Add build instructions here?
 
+## Credit
+
+Original hand model from:
+https://www.blendswap.com/blend/7894
+
 ## License
 
 Needed?

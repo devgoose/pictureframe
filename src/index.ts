@@ -11,6 +11,8 @@ import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
 import { WebXRCamera } from "@babylonjs/core/XR/webXRCamera";
 import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -21,18 +23,19 @@ import "@babylonjs/loaders/OBJ/objFileLoader";
 // Modules
 import { pfModule } from "./pfModule";
 import { Hands } from "./hands";
+import { Frame } from "./frame";
 
-class Game {
+export class Game {
+  public scene: Scene;
+  public xrCamera: WebXRCamera | null;
+  public leftController: WebXRInputSource | null;
+  public rightController: WebXRInputSource | null;
+
   private canvas: HTMLCanvasElement;
   private engine: Engine;
-  private scene: Scene;
-
-  private xrCamera: WebXRCamera | null;
   private xrSessionManager: WebXRSessionManager | null;
-  private leftController: WebXRInputSource | null;
-  private rightController: WebXRInputSource | null;
   private handsModule: Hands;
-
+  private frameModule: Frame;
   private modules: pfModule[];
 
   constructor() {
@@ -44,10 +47,11 @@ class Game {
     this.xrSessionManager = null;
     this.leftController = null;
     this.rightController = null;
-    this.handsModule = new Hands();
+    this.handsModule = new Hands(this);
+    this.frameModule = new Frame(this);
 
     // Define modules with common pfModule interface here
-    this.modules = [new Hands()];
+    this.modules = [this.handsModule, this.frameModule];
   }
 
   start(): void {
@@ -79,6 +83,20 @@ class Game {
       new Vector3(0, 2.5, 0),
       this.scene
     );
+    let directionalLight = new DirectionalLight(
+      "directionalLight",
+      new Vector3(0, -1, 1),
+      this.scene
+    );
+    let ambientLight = new HemisphericLight(
+      "ambientLight",
+      new Vector3(0, 1, 0),
+      this.scene
+    );
+    ambientLight.intensity = 1.0;
+    ambientLight.diffuse = new Color3(1, 1, 1);
+    directionalLight.intensity = 1.0;
+    directionalLight.diffuse = new Color3(1, 1, 1);
     pointLight.intensity = 1.0;
     pointLight.diffuse = new Color3(0.25, 0.25, 0.25);
 
@@ -106,7 +124,6 @@ class Game {
       this.modules.forEach((pfModule) => {
         pfModule.onControllerAdded(inputSource);
       });
-      this.handsModule.onControllerAdded(inputSource);
     });
     xrHelper.input.onControllerRemovedObservable.add((inputSource) => {
       if (inputSource.uniqueId.endsWith("right")) {
@@ -127,14 +144,14 @@ class Game {
 
   private update(): void {
     this.processControllerInput();
+    this.modules.forEach((pfModule) => {
+      pfModule.update();
+    });
   }
 
   private processControllerInput(): void {
     this.modules.forEach((pfModule) => {
-      pfModule.processControllerInput(
-        this.rightController!,
-        this.leftController!
-      );
+      pfModule.processController();
     });
   }
 }
