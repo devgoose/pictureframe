@@ -30,8 +30,8 @@ export class Frame implements pfModule {
 
     this.leftCorner = new Vector3();
     this.rightCorner = new Vector3();
-    this.minwidth = 0.5;
-    this.minheight = 0.5;
+    this.minwidth = 0.3;
+    this.minheight = 0.3;
 
     this.redMaterial = null;
     this.greenMaterial = null;
@@ -165,11 +165,17 @@ export class Frame implements pfModule {
     );
     const rightA = rightController!.motionController?.getComponent("a-button");
     const rightB = rightController!.motionController?.getComponent("b-button");
+    const rightGrip = rightController!.motionController?.getComponent(
+      "xr-standard-squeeze"
+    );
     const rightStick = rightController!.motionController?.getComponent(
       "xr-standard-thumbstick"
     );
     const leftTrigger = leftController!.motionController?.getComponent(
       "xr-standard-trigger"
+    );
+    const leftGrip = leftController!.motionController?.getComponent(
+      "xr-standard-squeeze"
     );
     const leftX = leftController!.motionController?.getComponent("x-button");
     const leftY = leftController!.motionController?.getComponent("y-button");
@@ -180,16 +186,20 @@ export class Frame implements pfModule {
     let rightButtonTouched =
       rightA?.touched || rightB?.touched || rightStick?.touched;
     let rightTriggerTouched = rightTrigger?.touched;
+    let rightGripSqueezed = rightGrip?.pressed;
 
     let leftButtonTouched =
       leftX?.touched || leftY?.touched || leftStick?.touched;
     let leftTriggerTouched = leftTrigger?.touched;
+    let leftGripSqueezed = leftGrip?.pressed;
 
     if (
       rightButtonTouched ||
       rightTriggerTouched ||
       leftButtonTouched ||
-      leftTriggerTouched
+      leftTriggerTouched ||
+      !rightGripSqueezed ||
+      !leftGripSqueezed
     ) {
       return false;
     }
@@ -212,9 +222,8 @@ export class Frame implements pfModule {
       .normalize();
 
     if (
-      Math.abs(Vector3.Dot(leftFDir, rightFDir)) > this.tolerance &&
-      Math.abs(Math.abs(Vector3.Dot(leftLDir, viewDir!)) - 1) >
-        this.tolerance &&
+      Math.abs(Vector3.Dot(leftFDir, rightFDir)) > this.tolerance ||
+      Math.abs(Math.abs(Vector3.Dot(leftLDir, viewDir!)) - 1) > this.tolerance ||
       Math.abs(Math.abs(Vector3.Dot(rightLDir, viewDir!)) - 1) > this.tolerance
     ) {
       return false;
