@@ -7,35 +7,53 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
+import { PermaFrame } from "./permaFrame";
+import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
+import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
+import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 
 export class Frame implements pfModule {
   game: Game;
 
   private tolerance: number; // Tolerance for difference in ortho/parallel checks in frameGesture
   private gestureMade: boolean; // Tracks if gesture was made on previous frame
+  private frameMade: boolean;
 
   private leftCorner: Vector3; // Corner used to create frame mesh
   private rightCorner: Vector3; // Corner used to create frame mesh
   private minwidth: number;
   private minheight: number;
+  private finalwidth: number;
+  private finalheight: number;
+  private finalVertexData: VertexData;
 
   private redMaterial: StandardMaterial | null;
   private greenMaterial: StandardMaterial | null;
+  private planeMaterial: CustomMaterial | null;
   private framePreview: Mesh | null;
+  //private frame: Mesh | null; // I think we need a permanent frame
+  //private camera: UniversalCamera | null; // permanent camera?
 
   constructor(game: Game) {
     this.game = game;
     this.tolerance = 0.2;
     this.gestureMade = false;
+    this.frameMade = false;
 
     this.leftCorner = new Vector3();
     this.rightCorner = new Vector3();
     this.minwidth = 0.3;
     this.minheight = 0.3;
+    this.finalwidth = 0.3;
+    this.finalheight = 0.3;
+    this.finalVertexData = new VertexData();
 
     this.redMaterial = null;
     this.greenMaterial = null;
+    this.planeMaterial = null;
     this.framePreview = null;
+    //this.frame = null;
+    //this.camera = null;
   }
 
   public loadAssets(scene: Scene): void {
@@ -110,14 +128,17 @@ export class Frame implements pfModule {
     vertexData.positions = positions;
     vertexData.indices = indices;
     vertexData.normals = normals;
+    this.finalVertexData = vertexData;
     vertexData.applyToMesh(this.framePreview!);
-
+  
     // update material
     let width = topLeft.subtract(topRight).length();
     if (height < this.minheight || width < this.minwidth) {
       this.framePreview!.material = this.redMaterial;
     } else {
       this.framePreview!.material = this.greenMaterial;
+      this.finalheight = height;
+      this.finalwidth = width;
     }
   }
 
@@ -143,7 +164,14 @@ export class Frame implements pfModule {
     ) {
       this.gestureMade = false;
       this.framePreview!.visibility = 0;
+
       // Create frame
+      this.frameMade = true; 
+      this.planeMaterial = this.createPlaneMaterial();
+      let perm = new PermaFrame(this.game);
+      perm.createPermaFrame(this.planeMaterial, this.finalVertexData);
+      this.game.frames.push(perm);
+
     } else {
       if (this.isFramingGesture(leftController, rightController)) {
         console.log("gesture made");
@@ -154,6 +182,32 @@ export class Frame implements pfModule {
         this.framePreview!.visibility = 0;
       }
     }
+  }
+
+  private createPlaneMaterial(): CustomMaterial{
+    // this could probably move to the permaFrame class
+    // creates and places the camera, and creates the plane texture
+    let cam = new UniversalCamera("viewport camera", 
+      this.game.xrCamera!.position, this.game.scene
+    );
+    //cam.cameraDirection = this.game.xrCamera!.getDirection(new Vector3(0, 0, 1));
+    cam.minZ = 0.1;
+    cam.fov = 0.8; // We can add the fov math here if/when we want to
+    //this.camera = cam;
+
+    let viewportTexture = new RenderTargetTexture("render texture", 
+      {width: this.finalwidth, height: this.finalheight}, 
+      this.game.scene, true
+    );
+    this.game.scene.customRenderTargets.push(viewportTexture);
+    viewportTexture.activeCamera = cam;
+    viewportTexture.renderList = this.game.scene.meshes;
+
+    let mat = new CustomMaterial("plane material", this.game.scene);
+    mat.emissiveTexture = viewportTexture;
+    mat.disableLighting = true;
+
+    return mat;
   }
 
   private isFramingGesture(
@@ -192,18 +246,28 @@ export class Frame implements pfModule {
       leftX?.touched || leftY?.touched || leftStick?.touched;
     let leftTriggerTouched = leftTrigger?.touched;
     let leftGripSqueezed = leftGrip?.pressed;
-
-    if (
-      rightButtonTouched ||
-      rightTriggerTouched ||
-      leftButtonTouched ||
-      leftTriggerTouched ||
-      !rightGripSqueezed ||
-      !leftGripSqueezed
-    ) {
-      return false;
+    if (!this.gestureMade){
+      if (
+        rightButtonTouched ||
+        rightTriggerTouched ||
+        leftButtonTouched ||
+        leftTriggerTouched ||
+        !rightGripSqueezed ||
+        !leftGripSqueezed
+      ) {
+        return false;
+      }
     }
-
+    else{ // this is so we can use the triggers to activate the creation
+      if ( // there's probably a clever way to do this
+        rightButtonTouched ||
+        leftButtonTouched ||
+        !rightGripSqueezed ||
+        !leftGripSqueezed
+      ) {
+        return false;
+      }
+    }
     let leftFDir = leftController.pointer
       .getDirection(new Vector3(0, 0, 1))
       .normalize();

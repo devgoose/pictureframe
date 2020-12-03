@@ -13,6 +13,7 @@ import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -24,18 +25,24 @@ import "@babylonjs/loaders/OBJ/objFileLoader";
 import { pfModule } from "./pfModule";
 import { Hands } from "./hands";
 import { Frame } from "./frame";
+import { World } from "./world";
+import { PermaFrame } from "./permaFrame";
 
 export class Game {
   public scene: Scene;
   public xrCamera: WebXRCamera | null;
   public leftController: WebXRInputSource | null;
   public rightController: WebXRInputSource | null;
+  public root: TransformNode;
+  public frames: PermaFrame[];
 
   private canvas: HTMLCanvasElement;
   private engine: Engine;
   private xrSessionManager: WebXRSessionManager | null;
   private handsModule: Hands;
   private frameModule: Frame;
+  private worldModule: World;
+  private permaFrameModule: PermaFrame;
   private modules: pfModule[];
 
   constructor() {
@@ -49,9 +56,13 @@ export class Game {
     this.rightController = null;
     this.handsModule = new Hands(this);
     this.frameModule = new Frame(this);
+    this.worldModule = new World(this);
+    this.permaFrameModule = new PermaFrame(this);
+    this.root = new TransformNode("root", this.scene);
+    this.frames = [];
 
     // Define modules with common pfModule interface here
-    this.modules = [this.handsModule, this.frameModule];
+    this.modules = [this.handsModule, this.frameModule, this.worldModule, this.permaFrameModule];
   }
 
   start(): void {
