@@ -16,6 +16,7 @@ export class PermaFrame implements pfModule {
 
   private plane: Mesh | null;
   private camera: UniversalCamera | null;
+  private viewportTexture: RenderTargetTexture | null;
 
   private textureResolution: number;
   private width: number;
@@ -25,6 +26,8 @@ export class PermaFrame implements pfModule {
     this.game = game;
     this.plane = null;
     this.camera = null;
+    this.viewportTexture = null;
+
     this.textureResolution = 1000;
     this.width = size.width;
     this.height = size.height;
@@ -75,6 +78,7 @@ export class PermaFrame implements pfModule {
     mat.disableLighting = true;
 
     this.plane.material = mat;
+    this.viewportTexture = viewportTexture;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {}
@@ -87,5 +91,7 @@ export class PermaFrame implements pfModule {
 
   public destroy(): void {
     this.plane?.dispose();
+    this.camera?.dispose();
+    this.viewportTexture?.dispose();
   }
 }
