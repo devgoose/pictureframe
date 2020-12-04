@@ -12,7 +12,7 @@ import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTa
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 
-export class Frame implements pfModule {
+export class previewFrame implements pfModule {
   game: Game;
 
   private tolerance: number; // Tolerance for difference in ortho/parallel checks in frameGesture
@@ -57,7 +57,7 @@ export class Frame implements pfModule {
   }
 
   public loadAssets(scene: Scene): void {
-    this.redMaterial = new StandardMaterial("frame material", this.game.scene);
+    this.redMaterial = new StandardMaterial("red material", this.game.scene);
     this.redMaterial.diffuseColor = new Color3(1, 0.8, 0.8);
     this.redMaterial.ambientColor = new Color3(1, 0.8, 0.8);
     this.redMaterial.alpha = 0.75;
@@ -122,15 +122,17 @@ export class Frame implements pfModule {
     ];
     let indices = [0, 1, 2, 1, 3, 2];
     let normals: number[] = [];
+    let uvs = [0, 1, 1, 1, 0, 0, 1, 0];
 
     let vertexData = new VertexData();
     VertexData.ComputeNormals(positions, indices, normals);
     vertexData.positions = positions;
     vertexData.indices = indices;
     vertexData.normals = normals;
+    vertexData.uvs = uvs;
     this.finalVertexData = vertexData;
     vertexData.applyToMesh(this.framePreview!);
-  
+
     // update material
     let width = topLeft.subtract(topRight).length();
     if (height < this.minheight || width < this.minwidth) {
@@ -158,20 +160,26 @@ export class Frame implements pfModule {
     let leftTrigger = leftController?.motionController?.getComponent(
       "xr-standard-trigger"
     );
-    if (
-      this.gestureMade &&
-      (rightTrigger?.changes.pressed || leftTrigger?.changes.pressed)
-    ) {
-      this.gestureMade = false;
-      this.framePreview!.visibility = 0;
+    // If gesture is made, don't cancel just because
+    //  triggers are touched or pressed.
+    if (this.gestureMade && (rightTrigger!.touched || leftTrigger?.touched)) {
+      // Create frame only if triggers are pressed, gesture
+      // is made, and is not too small (checking this with material name)
+      if (
+        this.framePreview!.material!.name !== "red material" &&
+        (rightTrigger?.changes.pressed || leftTrigger?.changes.pressed)
+      ) {
+        this.gestureMade = false;
+        this.framePreview!.visibility = 0;
 
-      // Create frame
-      this.frameMade = true; 
-      this.planeMaterial = this.createPlaneMaterial();
-      let perm = new PermaFrame(this.game);
-      perm.createPermaFrame(this.planeMaterial, this.finalVertexData);
-      this.game.frames.push(perm);
-
+        // Create frame
+        this.frameMade = true;
+        let perm = new PermaFrame(this.game, this.finalVertexData, {
+          height: this.finalheight,
+          width: this.finalwidth,
+        });
+        this.game.frames.push(perm);
+      }
     } else {
       if (this.isFramingGesture(leftController, rightController)) {
         console.log("gesture made");
@@ -182,32 +190,6 @@ export class Frame implements pfModule {
         this.framePreview!.visibility = 0;
       }
     }
-  }
-
-  private createPlaneMaterial(): CustomMaterial{
-    // this could probably move to the permaFrame class
-    // creates and places the camera, and creates the plane texture
-    let cam = new UniversalCamera("viewport camera", 
-      this.game.xrCamera!.position, this.game.scene
-    );
-    //cam.cameraDirection = this.game.xrCamera!.getDirection(new Vector3(0, 0, 1));
-    cam.minZ = 0.1;
-    cam.fov = 0.8; // We can add the fov math here if/when we want to
-    //this.camera = cam;
-
-    let viewportTexture = new RenderTargetTexture("render texture", 
-      {width: this.finalwidth, height: this.finalheight}, 
-      this.game.scene, true
-    );
-    this.game.scene.customRenderTargets.push(viewportTexture);
-    viewportTexture.activeCamera = cam;
-    viewportTexture.renderList = this.game.scene.meshes;
-
-    let mat = new CustomMaterial("plane material", this.game.scene);
-    mat.emissiveTexture = viewportTexture;
-    mat.disableLighting = true;
-
-    return mat;
   }
 
   private isFramingGesture(
@@ -246,27 +228,15 @@ export class Frame implements pfModule {
       leftX?.touched || leftY?.touched || leftStick?.touched;
     let leftTriggerTouched = leftTrigger?.touched;
     let leftGripSqueezed = leftGrip?.pressed;
-    if (!this.gestureMade){
-      if (
-        rightButtonTouched ||
-        rightTriggerTouched ||
-        leftButtonTouched ||
-        leftTriggerTouched ||
-        !rightGripSqueezed ||
-        !leftGripSqueezed
-      ) {
-        return false;
-      }
-    }
-    else{ // this is so we can use the triggers to activate the creation
-      if ( // there's probably a clever way to do this
-        rightButtonTouched ||
-        leftButtonTouched ||
-        !rightGripSqueezed ||
-        !leftGripSqueezed
-      ) {
-        return false;
-      }
+    if (
+      rightButtonTouched ||
+      rightTriggerTouched ||
+      leftButtonTouched ||
+      leftTriggerTouched ||
+      !rightGripSqueezed ||
+      !leftGripSqueezed
+    ) {
+      return false;
     }
     let leftFDir = leftController.pointer
       .getDirection(new Vector3(0, 0, 1))
@@ -286,13 +256,39 @@ export class Frame implements pfModule {
       .normalize();
 
     if (
-      Math.abs(Vector3.Dot(leftFDir, rightFDir)) > this.tolerance ||
-      Math.abs(Math.abs(Vector3.Dot(leftLDir, viewDir!)) - 1) > this.tolerance ||
-      Math.abs(Math.abs(Vector3.Dot(rightLDir, viewDir!)) - 1) > this.tolerance
+      !(
+        this.orthogonal(leftFDir, rightFDir) ||
+        this.parallel(leftFDir, rightFDir, false)
+      ) ||
+      !this.parallel(viewDir!, rightLDir) ||
+      !this.parallel(viewDir!, leftLDir)
     ) {
       return false;
     }
 
+    return true;
+  }
+
+  // Two helper functions for parallel/ortho checks
+  // u and v MUST be normalized
+  private parallel(u: Vector3, v: Vector3, antiparallel = true): boolean {
+    let dot = Vector3.Dot(u, v);
+
+    if (antiparallel) {
+      dot = Math.abs(dot);
+    }
+
+    if (Math.abs(dot - 1) > this.tolerance) {
+      return false;
+    }
+    return true;
+  }
+
+  private orthogonal(u: Vector3, v: Vector3): boolean {
+    let dot = Vector3.Dot(u, v);
+    if (Math.abs(dot) > this.tolerance) {
+      return false;
+    }
     return true;
   }
 }

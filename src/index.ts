@@ -24,7 +24,7 @@ import "@babylonjs/loaders/OBJ/objFileLoader";
 // Modules
 import { pfModule } from "./pfModule";
 import { Hands } from "./hands";
-import { Frame } from "./frame";
+import { previewFrame } from "./previewFrame";
 import { World } from "./world";
 import { PermaFrame } from "./permaFrame";
 
@@ -39,10 +39,10 @@ export class Game {
   private canvas: HTMLCanvasElement;
   private engine: Engine;
   private xrSessionManager: WebXRSessionManager | null;
+
   private handsModule: Hands;
-  private frameModule: Frame;
+  private previewFrameModule: previewFrame;
   private worldModule: World;
-  private permaFrameModule: PermaFrame;
   private modules: pfModule[];
 
   constructor() {
@@ -55,14 +55,17 @@ export class Game {
     this.leftController = null;
     this.rightController = null;
     this.handsModule = new Hands(this);
-    this.frameModule = new Frame(this);
+    this.previewFrameModule = new previewFrame(this);
     this.worldModule = new World(this);
-    this.permaFrameModule = new PermaFrame(this);
     this.root = new TransformNode("root", this.scene);
     this.frames = [];
 
     // Define modules with common pfModule interface here
-    this.modules = [this.handsModule, this.frameModule, this.worldModule, this.permaFrameModule];
+    this.modules = [
+      this.handsModule,
+      this.previewFrameModule,
+      this.worldModule,
+    ];
   }
 
   start(): void {
@@ -164,6 +167,13 @@ export class Game {
     this.modules.forEach((pfModule) => {
       pfModule.processController();
     });
+  }
+
+  public reset(): void {
+    this.frames.forEach((frame) => {
+      frame.destroy();
+    });
+    this.frames = [];
   }
 }
 

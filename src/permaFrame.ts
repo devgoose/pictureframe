@@ -1,49 +1,91 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3, Color3 } from "@babylonjs/core/Maths/math";
+import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
+import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
+import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
-import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
-import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
-import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 
 export class PermaFrame implements pfModule {
   game: Game;
 
   private plane: Mesh | null;
+  private camera: UniversalCamera | null;
 
-  constructor(game: Game) {
+  private textureResolution: number;
+  private width: number;
+  private height: number;
+
+  constructor(game: Game, vertexData: VertexData, size: any) {
     this.game = game;
     this.plane = null;
-    //this.frames = [];
+    this.camera = null;
+    this.textureResolution = 1000;
+    this.width = size.width;
+    this.height = size.height;
+
+    this.loadAssets(this.game.scene);
+
+    vertexData.applyToMesh(this.plane!);
   }
 
   public loadAssets(scene: Scene): void {
-    this.plane = new Mesh("custom", scene, null, null, false);
-    this.plane.visibility = 0;
-  }
+    this.plane = new Mesh("permaFrame", scene, null, null, false);
+    this.plane.visibility = 1;
 
-  public createPermaFrame(mat: CustomMaterial, vertexData: VertexData): void {
-    if(this.plane){
-      vertexData.applyToMesh(this.plane);
-      this.plane.material = mat;
-      this.plane.visibility = 1;
+    // Keeping track of the camera--that way we can change it's position, fov, etc if needed
+    this.camera = new UniversalCamera(
+      "viewport camera",
+      this.game.xrCamera!.position.clone(),
+      scene
+    );
+
+    // Setting the cameraDirection didn't seem to work?
+    // Using plain rotation y-value for now. Otherwise slight head
+    // tilts will tilt the texture
+    if (this.game.xrCamera!.rotationQuaternion) {
+      this.camera.rotation.y = this.game.xrCamera!.rotationQuaternion.toEulerAngles().y;
+    } else {
+      //this.camera.rotation = this.game.xrCamera!.rotation.clone();
+      this.camera.rotation.y = this.game.xrCamera!.rotation.y;
     }
+    this.camera.minZ = 0.1;
+    this.camera.fov = 0.8; // We can add the fov math here if/when we want to
+
+    let viewportTexture = new RenderTargetTexture(
+      "render texture",
+      {
+        width: Math.round(this.textureResolution * this.width),
+        height: Math.round(this.textureResolution * this.height),
+      },
+      scene
+    );
+    scene.customRenderTargets.push(viewportTexture);
+    viewportTexture.activeCamera = this.camera;
+    viewportTexture.renderList = this.game.scene.meshes;
+
+    let mat = new CustomMaterial("plane material", scene);
+    mat.backFaceCulling = false;
+    mat.emissiveTexture = viewportTexture;
+    mat.disableLighting = true;
+
+    this.plane.material = mat;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {}
   public onControllerRemoved(inputSource: WebXRInputSource): void {}
 
-  public update(): void {
-    
-  }
+  public update(): void {}
 
   // This is where the controller interactions can go
   public processController(): void {}
 
-
+  public destroy(): void {
+    this.plane?.dispose();
+  }
 }

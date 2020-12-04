@@ -130,5 +130,17 @@ export class Hands implements pfModule {
     } else {
       this.handMeshes[3].visibility = 1;
     }
+
+    // Reset gesture--all buttons and triggers down, removes all frames
+    if (
+      rightA?.pressed &&
+      rightB?.pressed &&
+      rightTrigger?.pressed &&
+      leftX?.pressed &&
+      leftY?.pressed &&
+      leftTrigger?.pressed
+    ) {
+      this.game.reset();
+    }
   }
 }
