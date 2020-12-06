@@ -162,12 +162,18 @@ export class previewFrame implements pfModule {
     );
     // If gesture is made, don't cancel just because
     //  triggers are touched or pressed.
-    if (this.gestureMade && (rightTrigger!.touched || leftTrigger?.touched)) {
+    if (
+      this.gestureMade &&
+      (rightTrigger!.touched ||
+        leftTrigger!.touched ||
+        rightTrigger!.pressed ||
+        leftTrigger!.pressed)
+    ) {
       // Create frame only if triggers are pressed, gesture
       // is made, and is not too small (checking this with material name)
       if (
         this.framePreview!.material!.name !== "red material" &&
-        (rightTrigger?.changes.pressed || leftTrigger?.changes.pressed)
+        (rightTrigger?.pressed || leftTrigger?.pressed)
       ) {
         this.gestureMade = false;
         this.framePreview!.visibility = 0;
@@ -178,7 +184,7 @@ export class previewFrame implements pfModule {
           height: this.finalheight,
           width: this.finalwidth,
         });
-        this.game.frames.push(perm);
+        this.game.addFrame(perm);
       }
     } else {
       if (this.isFramingGesture(leftController, rightController)) {

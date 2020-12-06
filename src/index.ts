@@ -130,10 +130,10 @@ export class Game {
     xrHelper.input.onControllerAddedObservable.add((inputSource) => {
       if (inputSource.uniqueId.endsWith("right")) {
         this.rightController = inputSource;
-        this.rightController!.grip!.visibility = 0;
+        this.rightController!.grip!.setEnabled(false);
       } else {
         this.leftController = inputSource;
-        this.leftController!.grip!.visibility = 0;
+        this.leftController!.grip!.setEnabled(false);
       }
       this.modules.forEach((pfModule) => {
         pfModule.onControllerAdded(inputSource);
@@ -171,9 +171,20 @@ export class Game {
 
   public reset(): void {
     this.frames.forEach((frame) => {
-      frame.destroy();
+      this.removeFrame(frame);
     });
     this.frames = [];
+  }
+
+  public addFrame(frame: PermaFrame) {
+    this.frames.push(frame);
+    this.modules.push(frame);
+  }
+
+  public removeFrame(frame: PermaFrame) {
+    this.frames.splice(this.frames.indexOf(frame), 1);
+    this.modules.splice(this.modules.indexOf(frame), 1);
+    frame.destroy();
   }
 }
 

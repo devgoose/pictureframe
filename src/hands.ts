@@ -5,17 +5,29 @@ import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
+import { PermaFrame } from "./permaFrame";
 
 export class Hands implements pfModule {
   game: Game;
 
-  private handMeshes: AbstractMesh[];
-  private handClones: AbstractMesh[];
+  private leftHands: AbstractMesh[]; // Left hands
+  private rightHands: AbstractMesh[]; // Right hands
+  private leftIndex: number;
+  private leftGrab: AbstractMesh | null;
+
+  private rightIndex: number;
+  private rightGrab: AbstractMesh | null;
 
   constructor(game: Game) {
     this.game = game;
-    this.handMeshes = [];
-    this.handClones = [];
+    this.leftHands = [];
+    this.rightHands = [];
+
+    this.leftIndex = 0;
+    this.leftGrab = null;
+
+    this.rightIndex = 0;
+    this.rightGrab = null;
   }
 
   public loadAssets(): void {
@@ -31,8 +43,8 @@ export class Hands implements pfModule {
     let initMesh = function (mesh: AbstractMesh, i: number) {
       mesh.visibility = 0;
       let clone = mesh.clone(mesh.name + "clone", mesh.parent);
-      self.handMeshes[i] = mesh;
-      self.handClones[i] = clone!;
+      self.leftHands[i] = mesh;
+      self.rightHands[i] = clone!;
     };
 
     handTask.onSuccess = function (task) {
@@ -58,14 +70,14 @@ export class Hands implements pfModule {
 
   public onControllerAdded(inputSource: WebXRInputSource): void {
     if (inputSource.uniqueId.endsWith("right")) {
-      this.handClones.forEach((mesh) => {
+      this.rightHands.forEach((mesh) => {
         mesh.setParent(inputSource.pointer);
         mesh.scaling = new Vector3(-1, -1, 1);
 
         mesh.rotation = new Vector3(0, -Math.PI / 2.0, 0);
       });
     } else {
-      this.handMeshes.forEach((mesh) => {
+      this.leftHands.forEach((mesh) => {
         mesh.setParent(inputSource.pointer);
       });
     }
@@ -73,11 +85,14 @@ export class Hands implements pfModule {
 
   public onControllerRemoved(inputSource: WebXRInputSource): void {}
 
-  public update(): void {}
+  public update(): void {
+    this.updateLeft(this.leftIndex);
+    this.updateRight(this.rightIndex);
+  }
 
   public processController(): void {
-    this.handClones.forEach((mesh) => (mesh.visibility = 0));
-    this.handMeshes.forEach((mesh) => (mesh.visibility = 0));
+    this.rightHands.forEach((mesh) => (mesh.visibility = 0));
+    this.leftHands.forEach((mesh) => (mesh.visibility = 0));
 
     let rightController = this.game.rightController;
     let leftController = this.game.leftController;
@@ -94,6 +109,9 @@ export class Hands implements pfModule {
     const rightStick = rightController!.motionController?.getComponent(
       "xr-standard-thumbstick"
     );
+    const rightSqueeze = rightController!.motionController?.getComponent(
+      "xr-standard-squeeze"
+    );
     const leftTrigger = leftController!.motionController?.getComponent(
       "xr-standard-trigger"
     );
@@ -102,6 +120,47 @@ export class Hands implements pfModule {
     const leftStick = leftController!.motionController?.getComponent(
       "xr-standard-thumbstick"
     );
+    const leftSqueeze = leftController!.motionController?.getComponent(
+      "xr-standard-squeeze"
+    );
+
+    // First, handle grabbing and releasing
+    if (leftSqueeze?.changes.pressed) {
+      if (leftSqueeze.pressed) {
+        for (let frame of this.game.frames) {
+          let mesh = frame.getMesh();
+          // Don't grab something with two hands
+          if (
+            mesh !== this.rightGrab &&
+            mesh!.intersectsMesh(this.leftHands[this.leftIndex], true)
+          ) {
+            this.leftGrab = mesh;
+            break;
+          }
+        }
+      } else {
+        this.leftGrab?.setParent(null);
+        this.leftGrab = null;
+      }
+    }
+    if (rightSqueeze?.changes.pressed) {
+      if (rightSqueeze.pressed) {
+        for (let frame of this.game.frames) {
+          let mesh = frame.getMesh();
+          // Don't grab something with two hands
+          if (
+            mesh !== this.leftGrab &&
+            mesh!.intersectsMesh(this.rightHands[this.rightIndex], true)
+          ) {
+            this.rightGrab = mesh;
+            break;
+          }
+        }
+      } else {
+        this.rightGrab?.setParent(null);
+        this.rightGrab = null;
+      }
+    }
 
     let rightButtonTouched =
       rightA?.touched || rightB?.touched || rightStick?.touched;
@@ -111,24 +170,25 @@ export class Hands implements pfModule {
       leftX?.touched || leftY?.touched || leftStick?.touched;
     let leftTriggerTouched = leftTrigger?.touched;
 
+    // Update hand models based on input
     if (rightButtonTouched && rightTriggerTouched) {
-      this.handClones[0].visibility = 1;
+      this.rightIndex = 0;
     } else if (rightTriggerTouched) {
-      this.handClones[1].visibility = 1;
+      this.rightIndex = 1;
     } else if (rightButtonTouched) {
-      this.handClones[2].visibility = 1;
+      this.rightIndex = 2;
     } else {
-      this.handClones[3].visibility = 1;
+      this.rightIndex = 3;
     }
 
     if (leftButtonTouched && leftTriggerTouched) {
-      this.handMeshes[0].visibility = 1;
+      this.leftIndex = 0;
     } else if (leftTriggerTouched) {
-      this.handMeshes[1].visibility = 1;
+      this.leftIndex = 1;
     } else if (leftButtonTouched) {
-      this.handMeshes[2].visibility = 1;
+      this.leftIndex = 2;
     } else {
-      this.handMeshes[3].visibility = 1;
+      this.leftIndex = 3;
     }
 
     // Reset gesture--all buttons and triggers down, removes all frames
@@ -141,6 +201,29 @@ export class Hands implements pfModule {
       leftTrigger?.pressed
     ) {
       this.game.reset();
+    }
+  }
+
+  // Helpers to control switching of hand models
+  private updateRight(index: number): void {
+    if (!this.rightHands[index]) {
+      return;
+    }
+    this.rightHands[index].visibility = 1;
+    this.rightHands[index].showBoundingBox = true;
+    if (this.rightGrab) {
+      this.rightGrab.setParent(this.game.rightController!.pointer);
+    }
+  }
+
+  private updateLeft(index: number): void {
+    if (!this.leftHands[index]) {
+      return;
+    }
+    this.leftHands[index].visibility = 1;
+    this.leftHands[index].showBoundingBox = true;
+    if (this.leftGrab) {
+      this.leftGrab.setParent(this.game.leftController!.pointer);
     }
   }
 }

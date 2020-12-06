@@ -1,12 +1,15 @@
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
+import { WebXRControllerComponent } from "@babylonjs/core/XR/motionController/webXRControllerComponent";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
@@ -22,6 +25,8 @@ export class PermaFrame implements pfModule {
   private width: number;
   private height: number;
 
+  private parent: TransformNode | null; // Keeps track of parent
+
   constructor(game: Game, vertexData: VertexData, size: any) {
     this.game = game;
     this.plane = null;
@@ -32,6 +37,8 @@ export class PermaFrame implements pfModule {
     this.width = size.width;
     this.height = size.height;
 
+    this.parent = null;
+
     this.loadAssets(this.game.scene);
 
     vertexData.applyToMesh(this.plane!);
@@ -40,6 +47,7 @@ export class PermaFrame implements pfModule {
   public loadAssets(scene: Scene): void {
     this.plane = new Mesh("permaFrame", scene, null, null, false);
     this.plane.visibility = 1;
+    this.plane.showBoundingBox = true;
 
     // Keeping track of the camera--that way we can change it's position, fov, etc if needed
     this.camera = new UniversalCamera(
@@ -88,6 +96,14 @@ export class PermaFrame implements pfModule {
 
   // This is where the controller interactions can go
   public processController(): void {}
+
+  public setParent(mesh: AbstractMesh): void {
+    this.plane?.setParent(mesh);
+  }
+
+  public getMesh(): AbstractMesh | null {
+    return this.plane;
+  }
 
   public destroy(): void {
     this.plane?.dispose();
