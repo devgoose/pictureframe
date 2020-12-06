@@ -1,18 +1,13 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3, Color3, Quaternion, Plane } from "@babylonjs/core/Maths/math";
+import { Vector3, Plane } from "@babylonjs/core/Maths/math";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
-import { WebXRControllerComponent } from "@babylonjs/core/XR/motionController/webXRControllerComponent";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
-import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
-import { Camera } from "@babylonjs/core";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
@@ -105,6 +100,8 @@ export class PermaFrame implements pfModule {
     viewportTexture.activeCamera = this.camera;
     viewportTexture.renderList = this.game.scene.meshes;
 
+    let deleteTexture = new Texture("assets/delete.jpg", scene);
+
     let mat = new CustomMaterial("plane material", scene);
     mat.backFaceCulling = false;
     mat.emissiveTexture = viewportTexture;
@@ -112,6 +109,7 @@ export class PermaFrame implements pfModule {
 
     this.plane.material = mat;
     this.viewportTexture = viewportTexture;
+    this.deleteTexture = deleteTexture;
     this.plane.visibility = 1;
     this.plane.showBoundingBox = true;
   }

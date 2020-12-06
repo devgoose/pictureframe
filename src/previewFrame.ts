@@ -62,8 +62,8 @@ export class previewFrame implements pfModule {
 
   public loadAssets(scene: Scene): void {
     this.redMaterial = new StandardMaterial("red material", this.game.scene);
-    this.redMaterial.diffuseColor = new Color3(1, 0.8, 0.8);
-    this.redMaterial.ambientColor = new Color3(1, 0.8, 0.8);
+    this.redMaterial.emissiveColor = new Color3(1, 0.8, 0.8);
+    this.redMaterial.disableLighting = true;
     this.redMaterial.alpha = 0.75;
     this.redMaterial.backFaceCulling = false;
 
@@ -71,8 +71,8 @@ export class previewFrame implements pfModule {
       "green material",
       this.game.scene
     );
-    this.greenMaterial.diffuseColor = new Color3(0.8, 1, 0.8);
-    this.greenMaterial.ambientColor = new Color3(0.8, 1, 0.8);
+    this.greenMaterial.emissiveColor = new Color3(0.8, 1, 0.8);
+    this.greenMaterial.disableLighting = true;
     this.greenMaterial.alpha = 0.75;
     this.greenMaterial.backFaceCulling = false;
 

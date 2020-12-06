@@ -14,6 +14,7 @@ import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { ShadowGenerator } from "@babylonjs/core";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -27,7 +28,6 @@ import { Hands } from "./hands";
 import { previewFrame } from "./previewFrame";
 import { World } from "./world";
 import { PermaFrame } from "./permaFrame";
-import { ShadowGenerator } from "@babylonjs/core";
 
 export class Game {
   public scene: Scene;
@@ -175,7 +175,7 @@ export class Game {
 
   public reset(): void {
     this.frames.forEach((frame) => {
-      this.removeFrame(frame);
+      frame.destroy();
     });
     this.frames = [];
   }

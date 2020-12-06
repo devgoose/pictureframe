@@ -1,7 +1,6 @@
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
-import { Scene } from "@babylonjs/core/scene";
 import { AssetsManager, WebXRInputSource } from "@babylonjs/core";
-import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
+import { Vector3 } from "@babylonjs/core/Maths/math";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
@@ -13,12 +12,14 @@ export class Hands implements pfModule {
   private leftHands: AbstractMesh[]; // Left hands
   private rightHands: AbstractMesh[]; // Right hands
   private leftIndex: number;
-  private leftGrab: AbstractMesh | null;
+  private leftGrab: PermaFrame | null;
   private leftDir: Vector3; // keeps track of direction for deletion
 
   private rightIndex: number;
-  private rightGrab: AbstractMesh | null;
+  private rightGrab: PermaFrame | null;
   private rightDir: Vector3; // keeps track of direction for deletion
+
+  private tolerance: number;
 
   constructor(game: Game) {
     this.game = game;
@@ -32,6 +33,8 @@ export class Hands implements pfModule {
     this.rightIndex = 0;
     this.rightGrab = null;
     this.rightDir = new Vector3();
+
+    this.tolerance = 0.2; // arbitrary choice for antiparallel check
   }
 
   public loadAssets(): void {
@@ -116,6 +119,9 @@ export class Hands implements pfModule {
     const rightSqueeze = rightController!.motionController?.getComponent(
       "xr-standard-squeeze"
     );
+    const rightPointer = rightController!.pointer.getDirection(
+      new Vector3(0, 0, 1)
+    );
     const leftTrigger = leftController!.motionController?.getComponent(
       "xr-standard-trigger"
     );
@@ -127,6 +133,9 @@ export class Hands implements pfModule {
     const leftSqueeze = leftController!.motionController?.getComponent(
       "xr-standard-squeeze"
     );
+    const leftPointer = rightController!.pointer.getDirection(
+      new Vector3(0, 0, 1)
+    );
 
     // First, handle grabbing and releasing
     if (leftSqueeze?.changes.pressed) {
@@ -135,19 +144,23 @@ export class Hands implements pfModule {
           let mesh = frame.getMesh();
           // Don't grab something with two hands
           if (
-            mesh !== this.rightGrab &&
+            frame !== this.rightGrab &&
             mesh!.intersectsMesh(this.leftHands[this.leftIndex], true)
           ) {
-            this.leftGrab = mesh;
-            this.leftDir = leftController.pointer.getDirection(
-              new Vector3(0, 0, 1)
-            );
+            this.leftGrab = frame;
+            this.leftDir = leftPointer;
             break;
           }
         }
       } else {
-        this.leftGrab?.setParent(null);
-        this.leftGrab = null;
+        if (this.leftGrab) {
+          this.leftGrab?.getMesh()!.setParent(null);
+
+          if (this.antiparallel(this.leftDir, leftPointer, this.tolerance)) {
+            this.game.removeFrame(this.leftGrab);
+          }
+          this.leftGrab = null;
+        }
       }
     }
     if (rightSqueeze?.changes.pressed) {
@@ -156,19 +169,38 @@ export class Hands implements pfModule {
           let mesh = frame.getMesh();
           // Don't grab something with two hands
           if (
-            mesh !== this.leftGrab &&
+            frame !== this.leftGrab &&
             mesh!.intersectsMesh(this.rightHands[this.rightIndex], true)
           ) {
-            this.rightGrab = mesh;
-            this.rightDir = rightController.pointer.getDirection(
-              new Vector3(0, 0, 1)
-            );
+            this.rightGrab = frame;
+            this.rightDir = rightPointer;
             break;
           }
         }
       } else {
-        this.rightGrab?.setParent(null);
-        this.rightGrab = null;
+        if (this.rightGrab) {
+          this.rightGrab.getMesh()!.setParent(null);
+          if (this.antiparallel(this.rightDir, rightPointer, this.tolerance)) {
+            this.game.removeFrame(this.rightGrab);
+          }
+          this.rightGrab = null;
+        }
+      }
+    }
+
+    // Update texture on grabbed objects
+    if (this.leftGrab) {
+      if (this.antiparallel(this.leftDir, leftPointer, this.tolerance)) {
+        this.leftGrab.setDeleteTexture(true);
+      } else {
+        this.leftGrab.setDeleteTexture(false);
+      }
+    }
+    if (this.rightGrab) {
+      if (this.antiparallel(this.rightDir, rightPointer, this.tolerance)) {
+        this.rightGrab.setDeleteTexture(true);
+      } else {
+        this.rightGrab.setDeleteTexture(false);
       }
     }
 
@@ -235,5 +267,13 @@ export class Hands implements pfModule {
     if (this.leftGrab) {
       this.leftGrab.setParent(this.game.leftController!.pointer);
     }
+  }
+
+  private antiparallel(u: Vector3, v: Vector3, tolerance: number) {
+    let dot = Vector3.Dot(u, v);
+    if (Math.abs(dot + 1) > tolerance) {
+      return false;
+    }
+    return true;
   }
 }
