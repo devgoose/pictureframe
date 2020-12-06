@@ -53,13 +53,12 @@ export class PermaFrame implements pfModule {
       scene
     );
 
-    this.camera.setTarget(this.camera.position.add(this.viewDir.scale(10000)));
-    /*if (this.game.xrCamera!.rotationQuaternion) {
-      this.camera.rotationQuaternion = this.game.xrCamera!.rotationQuaternion;
+    //this.camera.setTarget(this.camera.position.add(this.viewDir.scale(10000)));
+    if (this.game.xrCamera!.rotationQuaternion) {
+      this.camera.rotationQuaternion = this.game.xrCamera!.rotationQuaternion.clone();
     } else {
-      //this.camera.rotation = this.game.xrCamera!.rotation.clone();
-      this.camera.rotation = this.game.xrCamera!.rotation;
-    }*/
+      this.camera.rotation = this.game.xrCamera!.rotation.clone();
+    }
     
     // I think this could be done to 
     //this.camera.minZ = this.camera.position.subtract(this.plane.position).length();
