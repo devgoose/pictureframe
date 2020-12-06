@@ -14,9 +14,11 @@ export class Hands implements pfModule {
   private rightHands: AbstractMesh[]; // Right hands
   private leftIndex: number;
   private leftGrab: AbstractMesh | null;
+  private leftDir: Vector3; // keeps track of direction for deletion
 
   private rightIndex: number;
   private rightGrab: AbstractMesh | null;
+  private rightDir: Vector3; // keeps track of direction for deletion
 
   constructor(game: Game) {
     this.game = game;
@@ -25,9 +27,11 @@ export class Hands implements pfModule {
 
     this.leftIndex = 0;
     this.leftGrab = null;
+    this.leftDir = new Vector3();
 
     this.rightIndex = 0;
     this.rightGrab = null;
+    this.rightDir = new Vector3();
   }
 
   public loadAssets(): void {
@@ -135,6 +139,9 @@ export class Hands implements pfModule {
             mesh!.intersectsMesh(this.leftHands[this.leftIndex], true)
           ) {
             this.leftGrab = mesh;
+            this.leftDir = leftController.pointer.getDirection(
+              new Vector3(0, 0, 1)
+            );
             break;
           }
         }
@@ -153,6 +160,9 @@ export class Hands implements pfModule {
             mesh!.intersectsMesh(this.rightHands[this.rightIndex], true)
           ) {
             this.rightGrab = mesh;
+            this.rightDir = rightController.pointer.getDirection(
+              new Vector3(0, 0, 1)
+            );
             break;
           }
         }

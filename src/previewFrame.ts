@@ -5,14 +5,14 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Logger } from "@babylonjs/core/Misc/logger";
-
-import { pfModule } from "./pfModule";
-import { Game } from "./index";
-import { PermaFrame } from "./permaFrame";
 import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 import { Effect } from "@babylonjs/core";
+
+import { pfModule } from "./pfModule";
+import { Game } from "./index";
+import { PermaFrame } from "./permaFrame";
 
 export class previewFrame implements pfModule {
   game: Game;
@@ -25,15 +25,17 @@ export class previewFrame implements pfModule {
   private rightCorner: Vector3; // Corner used to create frame mesh
   private minwidth: number;
   private minheight: number;
+
+  // Frameinfo to be passed to permanent frame constructor
   private finalwidth: number;
   private finalheight: number;
   private finalVertexData: VertexData;
   private finalFOV: number;
-  private finalViewDir: Vector3;
+  private finalNormal: Vector3;
+  private finalCenter: Vector3;
 
   private redMaterial: StandardMaterial | null;
   private greenMaterial: StandardMaterial | null;
-  private planeMaterial: CustomMaterial | null;
   private framePreview: Mesh | null;
 
   constructor(game: Game) {
@@ -50,11 +52,11 @@ export class previewFrame implements pfModule {
     this.finalheight = 0.3;
     this.finalVertexData = new VertexData();
     this.finalFOV = 0.8;
-    this.finalViewDir = new Vector3();
+    this.finalNormal = new Vector3();
+    this.finalCenter = new Vector3();
 
     this.redMaterial = null;
     this.greenMaterial = null;
-    this.planeMaterial = null;
     this.framePreview = null;
   }
 
@@ -84,7 +86,6 @@ export class previewFrame implements pfModule {
   public onControllerRemoved(inputSource: WebXRInputSource): void {}
 
   public update(): void {
-
     let leftController = this.game.leftController;
     let rightController = this.game.rightController;
     if (!rightController || !leftController) {
@@ -96,10 +97,6 @@ export class previewFrame implements pfModule {
     let botRight;
     topLeft = this.leftCorner.clone();
     botRight = this.rightCorner.clone();
-    let center = topLeft.add(botRight).scale(0.5);
-    let viewNormal = center.subtract(this.game.xrCamera!.position).normalize();
-    this.finalViewDir = viewNormal.clone();
-    let p = Plane.FromPositionAndNormal(center, viewNormal).normalize(); // The frame plane
     // All points should be on this plane by definition.
     // After we have this plane we get the following shape:
     // TL-forward->----------------TR
@@ -111,42 +108,40 @@ export class previewFrame implements pfModule {
     // |                            |
     // |                            |
     // BL--------------------------BR
-    let diag = (topLeft.subtract(center));
+    let diag = botRight.subtract(topLeft);
     let diagLen = diag.length();
-    let forwardLeft = this.game.leftController!.pointer.forward.normalize();
-    let forwardRight = this.game.rightController!.pointer.up.normalize();
-    let angle = Vector3.GetAngleBetweenVectors(diag, forwardLeft, viewNormal);
-    let width = Math.abs(2*diagLen*Math.cos(angle));
-    let height = Math.abs(2*diagLen*Math.sin(angle));
-    Logger.Log("w: " + width + " + h: " + height + "\nview: " + viewNormal.toString());
-    
-    topRight = topLeft.add(forwardLeft.scale(width));
-    botLeft = botRight.subtract(forwardLeft.scale(width));
 
-    //topRight = center.add(forwardLeft.scale(width)).add(forwardRight.scale(height));
-    //botLeft = botRight.subtract(forwardLeft.scale(width));
+    let diagDir = diag.normalize();
+    let wDir = this.game.leftController!.pointer.forward.normalize();
+    let hDir = this.game.leftController!.pointer.up.normalize();
 
-    // Y-axis locked version
-    /*let height = this.leftCorner.y - this.rightCorner.y;
-    if (height > 0) {
-      topLeft = this.leftCorner.clone();
-      botRight = this.rightCorner.clone();
+    // May be negative. They are later abs()'d
+    let width = Vector3.Dot(diagDir, wDir) * diagLen;
+    let height = Vector3.Dot(diagDir, hDir) * diagLen;
+
+    // Logger.Log(
+    //   "w: " + width + " + h: " + height + "\nview: " + normal.toString()
+    // );
+
+    // Just use y value for determining which is on top
+    if (topLeft.y > botRight.y) {
+      botLeft = topLeft.add(hDir.scale(height));
+      topRight = botRight.subtract(hDir.scale(height));
+    } else {
       botLeft = topLeft.clone();
       topRight = botRight.clone();
-      botLeft.y -= height;
-      topRight.y += height;
-    } else {
-      height *= -1;
-      topRight = this.rightCorner.clone();
-      botLeft = this.leftCorner.clone();
-      botRight = topRight.clone();
-      topLeft = botLeft.clone();
-      botRight.y -= height;
-      topLeft.y += height;
-    }*/
 
-    // This should remain the same regardless of the corner 
-    // determination method. 
+      topLeft = botLeft.add(hDir.scale(height));
+      botRight = topRight.subtract(hDir.scale(height));
+    }
+
+    let normal = Vector3.Cross(
+      botLeft.subtract(topLeft),
+      topRight.subtract(topLeft)
+    ).normalize();
+
+    // This should remain the same regardless of the corner
+    // determination method.
     let positions = [
       topLeft.x,
       topLeft.y,
@@ -162,32 +157,49 @@ export class previewFrame implements pfModule {
       botRight.z,
     ];
     let indices = [0, 1, 2, 1, 3, 2];
-    let normals: number[] = [];
+    let normals = [
+      normal.x,
+      normal.y,
+      normal.z,
+      normal.x,
+      normal.y,
+      normal.z,
+      normal.x,
+      normal.y,
+      normal.z,
+      normal.x,
+      normal.y,
+      normal.z,
+    ];
     let uvs = [0, 1, 1, 1, 0, 0, 1, 0];
 
     let vertexData = new VertexData();
-    VertexData.ComputeNormals(positions, indices, normals);
     vertexData.positions = positions;
     vertexData.indices = indices;
     vertexData.normals = normals;
     vertexData.uvs = uvs;
-    this.finalVertexData = vertexData;
     vertexData.applyToMesh(this.framePreview!);
 
     // update material
     //let width = topLeft.subtract(topRight).length();
-    if (height < this.minheight || width < this.minwidth) {
+    if (Math.abs(height) < this.minheight || Math.abs(width) < this.minwidth) {
       this.framePreview!.material = this.redMaterial;
     } else {
       this.framePreview!.material = this.greenMaterial;
-      this.finalheight = height;
-      this.finalwidth = width;
+      this.finalheight = Math.abs(height);
+      this.finalwidth = Math.abs(width);
+      this.finalNormal = normal;
     }
-    
+
     // get center of the plane
-    let centerPos = topLeft.add(topRight.add(botLeft.add(botRight))).scale(0.25);
-    let headsetDistance = centerPos.subtract(this.game.xrCamera!.position).length();
-    this.finalFOV = Math.atan((height)/(2*headsetDistance));
+    let centerPos = topLeft
+      .add(topRight.add(botLeft.add(botRight)))
+      .scale(0.25);
+    this.finalCenter = centerPos;
+    let headsetDistance = centerPos
+      .subtract(this.game.xrCamera!.position)
+      .length();
+    this.finalFOV = Math.atan(height / (2 * headsetDistance));
   }
 
   public processController(): void {
@@ -226,11 +238,12 @@ export class previewFrame implements pfModule {
 
         // Create frame
         this.frameMade = true;
-        let perm = new PermaFrame(this.game, this.finalVertexData, {
+        let perm = new PermaFrame(this.game, {
           height: this.finalheight,
           width: this.finalwidth,
           fov: this.finalFOV,
-          viewDir: this.finalViewDir
+          normal: this.finalNormal,
+          center: this.finalCenter,
         });
         this.game.addFrame(perm);
       }
@@ -311,11 +324,13 @@ export class previewFrame implements pfModule {
 
     if (
       !(
-        this.orthogonal(leftFDir, rightFDir, this.tolerance) || // pointers have to be orthogonal
-        this.parallel(leftFDir, rightFDir, false, this.tolerance) // or pointers have to be parallel
+        (
+          this.orthogonal(leftFDir, rightFDir, this.tolerance) || // pointers have to be orthogonal
+          this.parallel(leftFDir, rightFDir, false, this.tolerance)
+        ) // or pointers have to be parallel
       ) ||
-      !this.parallel(viewDir!, rightLDir, true, this.tolerance*1.5) ||
-      !this.parallel(viewDir!, leftLDir, true, this.tolerance*1.5)
+      !this.parallel(viewDir!, rightLDir, true, this.tolerance * 1.5) ||
+      !this.parallel(viewDir!, leftLDir, true, this.tolerance * 1.5)
     ) {
       return false;
     }
@@ -325,7 +340,12 @@ export class previewFrame implements pfModule {
 
   // Two helper functions for parallel/ortho checks
   // u and v MUST be normalized
-  private parallel(u: Vector3, v: Vector3, antiparallel = true, tolerance: number): boolean {
+  private parallel(
+    u: Vector3,
+    v: Vector3,
+    antiparallel = true,
+    tolerance: number
+  ): boolean {
     let dot = Vector3.Dot(u, v);
 
     if (antiparallel) {
