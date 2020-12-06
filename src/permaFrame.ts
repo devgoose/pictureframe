@@ -21,6 +21,7 @@ export class PermaFrame implements pfModule {
   private textureResolution: number;
   private width: number;
   private height: number;
+  private fov: number;
 
   constructor(game: Game, vertexData: VertexData, size: any) {
     this.game = game;
@@ -31,10 +32,13 @@ export class PermaFrame implements pfModule {
     this.textureResolution = 1000;
     this.width = size.width;
     this.height = size.height;
+    this.fov = size.fov;
 
     this.loadAssets(this.game.scene);
 
     vertexData.applyToMesh(this.plane!);
+    //this.camera!.position = this.plane!.position;
+    //this.camera!.cameraDirection = this.game.xrCamera!.getDirection(new Vector3(0, 0, 1));
   }
 
   public loadAssets(scene: Scene): void {
@@ -58,7 +62,11 @@ export class PermaFrame implements pfModule {
       this.camera.rotation.y = this.game.xrCamera!.rotation.y;
     }
     this.camera.minZ = 0.1;
-    this.camera.fov = 0.8; // We can add the fov math here if/when we want to
+    //this.camera.fov = 0.8; // We can add the fov math here if/when we want to
+    this.camera.fov = this.fov;
+    // move the camera along its view vector a little bit
+    // maybe not until we remove the y axis locking
+    //this.camera.position = this.camera.position.addInPlace(this.camera.cameraDirection.scale(1.5));
 
     let viewportTexture = new RenderTargetTexture(
       "render texture",
