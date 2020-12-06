@@ -1,6 +1,6 @@
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { Scene } from "@babylonjs/core/scene";
-import { AssetsManager, Mesh, TransformNode, WebXRInputSource } from "@babylonjs/core";
+import { AssetsManager, Mesh, ShadowGenerator, TransformNode, WebXRInputSource } from "@babylonjs/core";
 import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 
 import { pfModule } from "./pfModule";
@@ -26,10 +26,15 @@ export class World implements pfModule {
 
     worldTask.onSuccess = function (task) {
       task.loadedMeshes.forEach((mesh) => {
-        //mesh.setParent(this.root); // I have NO idea why this won't work
+        // These lines don't work because for some reason "this"
+        // references the task as opposed to the class we are in
+        // I don't know how to circumnavigate that.
+        //mesh.setParent(this.root); 
+        //this.game.shadowGen.getShadowMap()?.renderList?.push(mesh);
         let scale = 30;
         mesh.scaling = new Vector3(scale, scale, scale);
         mesh.material!.backFaceCulling = false;
+        mesh.receiveShadows = true;
       });
     };
 

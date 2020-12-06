@@ -26,13 +26,12 @@ export class previewFrame implements pfModule {
   private finalwidth: number;
   private finalheight: number;
   private finalVertexData: VertexData;
+  private finalFOV: number;
 
   private redMaterial: StandardMaterial | null;
   private greenMaterial: StandardMaterial | null;
   private planeMaterial: CustomMaterial | null;
   private framePreview: Mesh | null;
-  //private frame: Mesh | null; // I think we need a permanent frame
-  //private camera: UniversalCamera | null; // permanent camera?
 
   constructor(game: Game) {
     this.game = game;
@@ -47,13 +46,12 @@ export class previewFrame implements pfModule {
     this.finalwidth = 0.3;
     this.finalheight = 0.3;
     this.finalVertexData = new VertexData();
+    this.finalFOV = 0.8
 
     this.redMaterial = null;
     this.greenMaterial = null;
     this.planeMaterial = null;
     this.framePreview = null;
-    //this.frame = null;
-    //this.camera = null;
   }
 
   public loadAssets(scene: Scene): void {
@@ -142,6 +140,11 @@ export class previewFrame implements pfModule {
       this.finalheight = height;
       this.finalwidth = width;
     }
+    
+    // get center of the plane
+    let centerPos = topLeft.add(topRight.add(botLeft.add(botRight))).scale(0.25);
+    let headsetDistance = centerPos.subtract(this.game.xrCamera!.position).length();
+    this.finalFOV = Math.atan((height)/(2*headsetDistance));
   }
 
   public processController(): void {
@@ -183,6 +186,7 @@ export class previewFrame implements pfModule {
         let perm = new PermaFrame(this.game, this.finalVertexData, {
           height: this.finalheight,
           width: this.finalwidth,
+          fov: this.finalFOV
         });
         this.game.addFrame(perm);
       }
@@ -253,7 +257,7 @@ export class previewFrame implements pfModule {
     let rightFDir = rightController.pointer
       .getDirection(new Vector3(0, 0, 1))
       .normalize();
-    let rightLDir = leftController.pointer
+    let rightLDir = rightController.pointer
       .getDirection(new Vector3(-1, 0, 0))
       .normalize();
 
@@ -263,11 +267,11 @@ export class previewFrame implements pfModule {
 
     if (
       !(
-        this.orthogonal(leftFDir, rightFDir) ||
-        this.parallel(leftFDir, rightFDir, false)
+        this.orthogonal(leftFDir, rightFDir, this.tolerance) || // pointers have to be orthogonal
+        this.parallel(leftFDir, rightFDir, false, this.tolerance) // or pointers have to be parallel
       ) ||
-      !this.parallel(viewDir!, rightLDir) ||
-      !this.parallel(viewDir!, leftLDir)
+      !this.parallel(viewDir!, rightLDir, true, this.tolerance*1.5) ||
+      !this.parallel(viewDir!, leftLDir, true, this.tolerance*1.5)
     ) {
       return false;
     }
@@ -277,22 +281,22 @@ export class previewFrame implements pfModule {
 
   // Two helper functions for parallel/ortho checks
   // u and v MUST be normalized
-  private parallel(u: Vector3, v: Vector3, antiparallel = true): boolean {
+  private parallel(u: Vector3, v: Vector3, antiparallel = true, tolerance: number): boolean {
     let dot = Vector3.Dot(u, v);
 
     if (antiparallel) {
       dot = Math.abs(dot);
     }
 
-    if (Math.abs(dot - 1) > this.tolerance) {
+    if (Math.abs(dot - 1) > tolerance) {
       return false;
     }
     return true;
   }
 
-  private orthogonal(u: Vector3, v: Vector3): boolean {
+  private orthogonal(u: Vector3, v: Vector3, tolerance: number): boolean {
     let dot = Vector3.Dot(u, v);
-    if (Math.abs(dot) > this.tolerance) {
+    if (Math.abs(dot) > tolerance) {
       return false;
     }
     return true;

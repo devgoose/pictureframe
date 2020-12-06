@@ -27,6 +27,7 @@ import { Hands } from "./hands";
 import { previewFrame } from "./previewFrame";
 import { World } from "./world";
 import { PermaFrame } from "./permaFrame";
+import { ShadowGenerator } from "@babylonjs/core";
 
 export class Game {
   public scene: Scene;
@@ -35,6 +36,7 @@ export class Game {
   public rightController: WebXRInputSource | null;
   public root: TransformNode;
   public frames: PermaFrame[];
+  public shadowGenerator: ShadowGenerator | null;
 
   private canvas: HTMLCanvasElement;
   private engine: Engine;
@@ -59,6 +61,7 @@ export class Game {
     this.worldModule = new World(this);
     this.root = new TransformNode("root", this.scene);
     this.frames = [];
+    this.shadowGenerator = null;
 
     // Define modules with common pfModule interface here
     this.modules = [
@@ -113,6 +116,7 @@ export class Game {
     directionalLight.diffuse = new Color3(1, 1, 1);
     pointLight.intensity = 1.0;
     pointLight.diffuse = new Color3(0.25, 0.25, 0.25);
+    this.shadowGenerator = new ShadowGenerator(2048, directionalLight);
 
     const environment = this.scene.createDefaultEnvironment({
       createGround: true,
