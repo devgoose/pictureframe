@@ -222,7 +222,8 @@ export class previewFrame implements pfModule {
     let headsetDistance = centerPos
       .subtract(this.game.xrCamera!.position)
       .length();
-    this.finalFOV = Math.atan(height / (2 * headsetDistance));
+    // vertical v
+    this.finalFOV = 2 * Math.atan(height / (2.0 * headsetDistance));
   }
 
   public processController(): void {
@@ -331,6 +332,10 @@ export class previewFrame implements pfModule {
     ) {
       return false;
     }
+
+    let center = leftController!
+      .grip!.position.add(rightController!.grip!.position)
+      .scale(0.5);
     let leftFDir = leftController.pointer
       .getDirection(new Vector3(0, 0, 1))
       .normalize();
@@ -347,7 +352,18 @@ export class previewFrame implements pfModule {
     let viewDir = this.game.xrCamera
       ?.getDirection(new Vector3(0, 0, 1))
       .normalize();
+    let headsetToCenter = center
+      .subtract(this.game!.xrCamera!.position)
+      .normalize();
 
+    /**
+    Gesture criteria:
+    - The pointer (forward dir) of both controllers must be orthogonal
+      - OR, they must be ANTIparallel (currently it's coded as parallel though?)
+    -View direction of the headset must align with:
+      -Side vector of both controllers
+      -Vector from center of frame to headset
+    */
     if (
       !(
         (
@@ -356,7 +372,8 @@ export class previewFrame implements pfModule {
         ) // or pointers have to be parallel
       ) ||
       !this.parallel(viewDir!, rightLDir, true, this.tolerance * 1.5) ||
-      !this.parallel(viewDir!, leftLDir, true, this.tolerance * 1.5)
+      !this.parallel(viewDir!, leftLDir, true, this.tolerance * 1.5) ||
+      !this.parallel(viewDir!, headsetToCenter, true, this.tolerance * 1.5)
     ) {
       return false;
     }

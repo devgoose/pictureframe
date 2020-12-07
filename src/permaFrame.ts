@@ -51,10 +51,65 @@ export class PermaFrame implements pfModule {
 
     this.loadAssets(this.game.scene);
 
-    frameInfo.vertexData.applyToMesh(this.plane!);
+    // Debug
+    console.log(this.frameInfo);
   }
 
   public loadAssets(scene: Scene): void {
+    // Create RTT first since we just use all meshes in the scene, otherwise feedback loop
+
+    this.camera = new UniversalCamera(
+      "viewport camera",
+      this.game.xrCamera!.position.clone(),
+      scene
+    );
+    //this.camera.setTarget(this.camera.position.add(this.viewDir.scale(10000)));
+    if (this.game.xrCamera!.rotationQuaternion) {
+      this.camera.rotationQuaternion = this.game.xrCamera!.rotationQuaternion.clone();
+    } else {
+      this.camera.rotation = this.game.xrCamera!.rotation.clone();
+    }
+
+    // I think this could be done to
+    this.camera.minZ = this.frameInfo.center
+      .subtract(this.camera.position)
+      .length();
+    //this.camera.minZ = 0.1;
+
+    //this.camera.fov = 0.8; // We can add the fov math here if/when we want to
+    this.camera.fov = this.frameInfo.fov;
+
+    // Then, create the render texture from the camera
+    let viewportTexture = new RenderTargetTexture(
+      "render texture",
+      {
+        width: Math.round(this.textureResolution * this.frameInfo.width),
+        height: Math.round(this.textureResolution * this.frameInfo.height),
+      },
+      scene,
+      false,
+      false
+    );
+    scene.customRenderTargets.push(viewportTexture);
+    viewportTexture.activeCamera = this.camera;
+    viewportTexture.renderList = this.game.scene.meshes;
+
+    // First, create the actual frame mesh, and correctly set the UVs
+    this.plane = new Mesh("permaFrame", scene, null, null, false);
+    this.frameInfo.vertexData.applyToMesh(this.plane!);
+
+    let deleteTexture = new Texture("assets/delete.jpg", scene);
+
+    let mat = new CustomMaterial("plane material", scene);
+    mat.backFaceCulling = false;
+    mat.emissiveTexture = viewportTexture;
+    mat.disableLighting = true;
+
+    this.plane.material = mat;
+    this.viewportTexture = viewportTexture;
+    this.deleteTexture = deleteTexture;
+    this.plane.visibility = 1;
+
     // Bounding boxes for hand-made meshes are bad--but good for textures
     // Using a MeshBuilder plane for the boundary, and VertexData for the actual frame
     this.boundary = MeshBuilder.CreatePlane(
@@ -70,61 +125,9 @@ export class PermaFrame implements pfModule {
       this.frameInfo.hDir.scale(-1),
       this.frameInfo.normal
     );
-    console.log(this.frameInfo);
     this.boundary.position = this.frameInfo.center;
     this.boundary.visibility = 0;
-
-    this.plane = new Mesh("permaFrame", scene, null, null, false); // Bounding boxes for hand-made meshes kind of suck.
-    this.plane.visibility = 1; // Creating a Plane with MeshBuilder from the frameInfo instead
     this.boundary.setParent(this.plane);
-
-    // Keeping track of the camera--that way we can change it's position, fov, etc if needed
-    this.camera = new UniversalCamera(
-      "viewport camera",
-      this.game.xrCamera!.position.clone(),
-      scene
-    );
-
-    //this.camera.setTarget(this.camera.position.add(this.viewDir.scale(10000)));
-    if (this.game.xrCamera!.rotationQuaternion) {
-      this.camera.rotationQuaternion = this.game.xrCamera!.rotationQuaternion.clone();
-    } else {
-      this.camera.rotation = this.game.xrCamera!.rotation.clone();
-    }
-
-    // I think this could be done to
-    //this.camera.minZ = this.camera.position.subtract(this.plane.position).length();
-    this.camera.minZ = 0.1;
-
-    //this.camera.fov = 0.8; // We can add the fov math here if/when we want to
-    this.camera.fov = this.frameInfo.fov;
-    // move the camera along its view vector a little bit
-    // maybe not until we remove the y axis locking
-    //this.camera.position = this.camera.position.addInPlace(this.camera.cameraDirection.scale(1.5));
-
-    let viewportTexture = new RenderTargetTexture(
-      "render texture",
-      {
-        width: Math.round(this.textureResolution * this.frameInfo.width),
-        height: Math.round(this.textureResolution * this.frameInfo.height),
-      },
-      scene
-    );
-    scene.customRenderTargets.push(viewportTexture);
-    viewportTexture.activeCamera = this.camera;
-    viewportTexture.renderList = this.game.scene.meshes;
-
-    let deleteTexture = new Texture("assets/delete.jpg", scene);
-
-    let mat = new CustomMaterial("plane material", scene);
-    mat.backFaceCulling = false;
-    mat.emissiveTexture = viewportTexture;
-    mat.disableLighting = true;
-
-    this.plane.material = mat;
-    this.viewportTexture = viewportTexture;
-    this.deleteTexture = deleteTexture;
-    this.plane.visibility = 1;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {}
