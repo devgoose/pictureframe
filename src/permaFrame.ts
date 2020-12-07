@@ -8,6 +8,7 @@ import { CustomMaterial } from "@babylonjs/materials/custom/customMaterial";
 import { RenderTargetTexture } from "@babylonjs/core/Materials/Textures/renderTargetTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { VertexData } from "@babylonjs/core";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
@@ -17,14 +18,19 @@ interface FrameInfo {
   height: number;
   width: number;
   fov: number;
-  normal: Vector3;
   center: Vector3;
+  vertexData: VertexData;
+  // basis axes for rotation
+  wDir: Vector3; // x
+  hDir: Vector3; // y
+  normal: Vector3; // z
 }
 
 export class PermaFrame implements pfModule {
   game: Game;
 
   private plane: Mesh | null;
+  private boundary: Mesh | null;
   private camera: UniversalCamera | null;
   private viewportTexture: RenderTargetTexture | null;
   private deleteTexture: Texture | null;
@@ -35,6 +41,7 @@ export class PermaFrame implements pfModule {
   constructor(game: Game, frameInfo: FrameInfo) {
     this.game = game;
     this.plane = null;
+    this.boundary = null;
     this.camera = null;
     this.viewportTexture = null;
     this.deleteTexture = null;
@@ -43,26 +50,33 @@ export class PermaFrame implements pfModule {
     this.frameInfo = frameInfo;
 
     this.loadAssets(this.game.scene);
+
+    frameInfo.vertexData.applyToMesh(this.plane!);
   }
 
   public loadAssets(scene: Scene): void {
-    // Bounding boxes for hand-made meshes kind of suck.
-    // Creating a Plane with MeshBuilder from the frameInfo instead
-    // Plane is created with center position/width/height/normal
-    let p = Plane.FromPositionAndNormal(
-      this.frameInfo.center,
-      this.frameInfo.normal
-    );
-    this.plane = MeshBuilder.CreatePlane(
-      "permaFrame",
+    // Bounding boxes for hand-made meshes are bad--but good for textures
+    // Using a MeshBuilder plane for the boundary, and VertexData for the actual frame
+    this.boundary = MeshBuilder.CreatePlane(
+      "frameBoundary",
       {
         height: this.frameInfo.height,
         width: this.frameInfo.width,
-        sourcePlane: p,
       },
       this.game.scene
     );
-    this.plane.position = this.frameInfo.center;
+    this.boundary.rotation = Vector3.RotationFromAxis(
+      this.frameInfo.wDir,
+      this.frameInfo.hDir.scale(-1),
+      this.frameInfo.normal
+    );
+    console.log(this.frameInfo);
+    this.boundary.position = this.frameInfo.center;
+    this.boundary.visibility = 0;
+
+    this.plane = new Mesh("permaFrame", scene, null, null, false); // Bounding boxes for hand-made meshes kind of suck.
+    this.plane.visibility = 1; // Creating a Plane with MeshBuilder from the frameInfo instead
+    this.boundary.setParent(this.plane);
 
     // Keeping track of the camera--that way we can change it's position, fov, etc if needed
     this.camera = new UniversalCamera(
@@ -111,7 +125,6 @@ export class PermaFrame implements pfModule {
     this.viewportTexture = viewportTexture;
     this.deleteTexture = deleteTexture;
     this.plane.visibility = 1;
-    this.plane.showBoundingBox = true;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {}
@@ -128,6 +141,13 @@ export class PermaFrame implements pfModule {
 
   public getMesh(): AbstractMesh | null {
     return this.plane;
+  }
+
+  public intersects(mesh: AbstractMesh): boolean {
+    if (!this.boundary) {
+      return false;
+    }
+    return mesh.intersectsMesh(this.boundary, true);
   }
 
   public setDeleteTexture(on: boolean): void {

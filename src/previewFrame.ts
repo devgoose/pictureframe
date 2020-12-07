@@ -31,8 +31,10 @@ export class previewFrame implements pfModule {
   private finalheight: number;
   private finalVertexData: VertexData;
   private finalFOV: number;
-  private finalNormal: Vector3;
   private finalCenter: Vector3;
+  private finalwDir: Vector3;
+  private finalhDir: Vector3;
+  private finalNormal: Vector3;
 
   private redMaterial: StandardMaterial | null;
   private greenMaterial: StandardMaterial | null;
@@ -52,8 +54,10 @@ export class previewFrame implements pfModule {
     this.finalheight = 0.3;
     this.finalVertexData = new VertexData();
     this.finalFOV = 0.8;
-    this.finalNormal = new Vector3();
     this.finalCenter = new Vector3();
+    this.finalwDir = new Vector3();
+    this.finalhDir = new Vector3();
+    this.finalNormal = new Vector3();
 
     this.redMaterial = null;
     this.greenMaterial = null;
@@ -110,30 +114,46 @@ export class previewFrame implements pfModule {
     // BL--------------------------BR
     let diag = botRight.subtract(topLeft);
     let diagLen = diag.length();
-
     let diagDir = diag.normalize();
-    let wDir = this.game.leftController!.pointer.forward.normalize();
-    let hDir = this.game.leftController!.pointer.up.normalize();
 
-    // May be negative. They are later abs()'d
-    let width = Vector3.Dot(diagDir, wDir) * diagLen;
-    let height = Vector3.Dot(diagDir, hDir) * diagLen;
+    let wDir;
+    let hDir;
+    let width;
+    let height;
+
+    wDir = this.game.leftController!.pointer.forward.normalize();
+    hDir = this.game.leftController!.pointer.up.normalize();
+
+    // Just use y value for determining which is on top
+    if (topLeft.y > botRight.y) {
+      width = Vector3.Dot(diagDir, wDir) * diagLen;
+      height = Vector3.Dot(diagDir, hDir) * diagLen;
+
+      botLeft = topLeft.add(hDir.scale(height));
+      topRight = botRight.subtract(hDir.scale(height));
+    } else {
+      // Need to swap w/h dirs
+      let temp = wDir;
+      wDir = hDir;
+      hDir = temp;
+      width = Vector3.Dot(diagDir, wDir) * diagLen;
+      height = Vector3.Dot(diagDir, hDir) * diagLen;
+
+      // Left controller is on the "bottom" side now
+      botLeft = topLeft.clone();
+      topRight = botRight.clone();
+
+      // Calculate the rest of the vertices
+      topLeft = botLeft.add(hDir.scale(height));
+      botRight = topRight.subtract(hDir.scale(height));
+
+      // must reverse this for rebuilding the perma frame
+      hDir = hDir.scale(-1);
+    }
 
     // Logger.Log(
     //   "w: " + width + " + h: " + height + "\nview: " + normal.toString()
     // );
-
-    // Just use y value for determining which is on top
-    if (topLeft.y > botRight.y) {
-      botLeft = topLeft.add(hDir.scale(height));
-      topRight = botRight.subtract(hDir.scale(height));
-    } else {
-      botLeft = topLeft.clone();
-      topRight = botRight.clone();
-
-      topLeft = botLeft.add(hDir.scale(height));
-      botRight = topRight.subtract(hDir.scale(height));
-    }
 
     let normal = Vector3.Cross(
       botLeft.subtract(topLeft),
@@ -188,7 +208,10 @@ export class previewFrame implements pfModule {
       this.framePreview!.material = this.greenMaterial;
       this.finalheight = Math.abs(height);
       this.finalwidth = Math.abs(width);
+      this.finalVertexData = vertexData;
       this.finalNormal = normal;
+      this.finalhDir = hDir;
+      this.finalwDir = wDir;
     }
 
     // get center of the plane
@@ -242,8 +265,11 @@ export class previewFrame implements pfModule {
           height: this.finalheight,
           width: this.finalwidth,
           fov: this.finalFOV,
-          normal: this.finalNormal,
           center: this.finalCenter,
+          vertexData: this.finalVertexData,
+          wDir: this.finalwDir,
+          hDir: this.finalhDir,
+          normal: this.finalNormal,
         });
         this.game.addFrame(perm);
       }

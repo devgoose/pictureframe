@@ -141,11 +141,10 @@ export class Hands implements pfModule {
     if (leftSqueeze?.changes.pressed) {
       if (leftSqueeze.pressed) {
         for (let frame of this.game.frames) {
-          let mesh = frame.getMesh();
           // Don't grab something with two hands
           if (
             frame !== this.rightGrab &&
-            mesh!.intersectsMesh(this.leftHands[this.leftIndex], true)
+            frame.intersects(this.leftHands[this.leftIndex])
           ) {
             this.leftGrab = frame;
             this.leftDir = leftPointer;
@@ -166,11 +165,10 @@ export class Hands implements pfModule {
     if (rightSqueeze?.changes.pressed) {
       if (rightSqueeze.pressed) {
         for (let frame of this.game.frames) {
-          let mesh = frame.getMesh();
           // Don't grab something with two hands
           if (
             frame !== this.leftGrab &&
-            mesh!.intersectsMesh(this.rightHands[this.rightIndex], true)
+            frame.intersects(this.rightHands[this.rightIndex])
           ) {
             this.rightGrab = frame;
             this.rightDir = rightPointer;
