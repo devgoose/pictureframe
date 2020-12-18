@@ -1,6 +1,6 @@
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { AssetsManager, WebXRInputSource } from "@babylonjs/core";
-import { Vector3 } from "@babylonjs/core/Maths/math";
+import { Vector3, Color3 } from "@babylonjs/core/Maths/math";
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
@@ -20,6 +20,9 @@ export class Hands implements pfModule {
   private rightDir: Vector3; // keeps track of direction for deletion
 
   private tolerance: number;
+
+  // Maybe add some state management here so each module doesn't have to check 
+  // the inputs, probably doesn't really matter
 
   constructor(game: Game) {
     this.game = game;
@@ -50,6 +53,10 @@ export class Hands implements pfModule {
     let initMesh = function (mesh: AbstractMesh, i: number) {
       mesh.visibility = 0;
       let clone = mesh.clone(mesh.name + "clone", mesh.parent);
+
+      clone!.isPickable = false;
+      mesh!.isPickable = false;
+
       self.leftHands[i] = mesh;
       self.rightHands[i] = clone!;
     };
@@ -90,7 +97,7 @@ export class Hands implements pfModule {
     }
   }
 
-  public onControllerRemoved(inputSource: WebXRInputSource): void {}
+  public onControllerRemoved(inputSource: WebXRInputSource): void { }
 
   public update(): void {
     this.updateLeft(this.leftIndex);

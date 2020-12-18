@@ -130,13 +130,13 @@ export class PermaFrame implements pfModule {
     this.boundary.setParent(this.plane);
   }
 
-  public onControllerAdded(inputSource: WebXRInputSource): void {}
-  public onControllerRemoved(inputSource: WebXRInputSource): void {}
+  public onControllerAdded(inputSource: WebXRInputSource): void { }
+  public onControllerRemoved(inputSource: WebXRInputSource): void { }
 
-  public update(): void {}
+  public update(): void { }
 
   // This is where the controller interactions can go
-  public processController(): void {}
+  public processController(): void { }
 
   public setParent(mesh: AbstractMesh): void {
     this.plane?.setParent(mesh);

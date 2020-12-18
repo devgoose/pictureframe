@@ -42,6 +42,11 @@ export class World implements pfModule {
         mesh.scaling = new Vector3(scale, scale, scale);
         mesh.material!.backFaceCulling = false;
         mesh.receiveShadows = true;
+
+        // Handle pickable and ground meshes here
+        if (mesh.name === "Ground_and_Fountain") {
+          self.game!.groundMeshes.push(mesh);
+        }
       });
     };
 
@@ -52,10 +57,10 @@ export class World implements pfModule {
     assetsManager.load();
   }
 
-  public update(): void {}
+  public update(): void { }
 
-  public onControllerAdded(inputSource: WebXRInputSource): void {}
-  public onControllerRemoved(inputSource: WebXRInputSource): void {}
+  public onControllerAdded(inputSource: WebXRInputSource): void { }
+  public onControllerRemoved(inputSource: WebXRInputSource): void { }
 
-  public processController(): void {}
+  public processController(): void { }
 }

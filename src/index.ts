@@ -15,6 +15,7 @@ import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { ShadowGenerator } from "@babylonjs/core";
+import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -28,6 +29,7 @@ import { Hands } from "./hands";
 import { previewFrame } from "./previewFrame";
 import { World } from "./world";
 import { PermaFrame } from "./permaFrame";
+import { LaserPointer } from "./laserPointer";
 
 export class Game {
   public scene: Scene;
@@ -37,6 +39,7 @@ export class Game {
   public root: TransformNode;
   public frames: PermaFrame[];
   public shadowGenerator: ShadowGenerator | null;
+  public groundMeshes: AbstractMesh[];
 
   private canvas: HTMLCanvasElement;
   private engine: Engine;
@@ -45,7 +48,9 @@ export class Game {
   private handsModule: Hands;
   private previewFrameModule: previewFrame;
   private worldModule: World;
+  private laserModule: LaserPointer;
   private modules: pfModule[];
+
 
   constructor() {
     this.canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -59,6 +64,7 @@ export class Game {
     this.handsModule = new Hands(this);
     this.previewFrameModule = new previewFrame(this);
     this.worldModule = new World(this);
+    this.laserModule = new LaserPointer(this);
     this.root = new TransformNode("root", this.scene);
     this.frames = [];
     this.shadowGenerator = null;
@@ -68,7 +74,10 @@ export class Game {
       this.handsModule,
       this.previewFrameModule,
       this.worldModule,
+      this.laserModule,
     ];
+
+    this.groundMeshes = [];
   }
 
   start(): void {
