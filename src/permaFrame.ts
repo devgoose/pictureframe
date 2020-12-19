@@ -150,6 +150,10 @@ export class PermaFrame implements pfModule {
     return this.camera;
   }
 
+  public getNormal(): Vector3 {
+    return this.boundary!.getDirection(new Vector3(0, 0, 1));
+  }
+
   public intersects(mesh: AbstractMesh): boolean {
     if (!this.boundary) {
       return false;

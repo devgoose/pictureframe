@@ -13,11 +13,11 @@ export class Hands implements pfModule {
   private rightHands: AbstractMesh[]; // Right hands
   private leftIndex: number;
   private leftGrab: PermaFrame | null;
-  private leftDir: Vector3; // keeps track of direction for deletion
+  private leftDir: Vector3; // keeps track of plane normal for deletion
 
   private rightIndex: number;
   private rightGrab: PermaFrame | null;
-  private rightDir: Vector3; // keeps track of direction for deletion
+  private rightDir: Vector3; // keeps track of plane normal for deletion
 
   private zooming: boolean; // keeps track of if we are zooming or not
   private baseDist: number; // initial distance between controllers when starting zoom
@@ -164,7 +164,7 @@ export class Hands implements pfModule {
             frame.intersects(this.leftHands[this.leftIndex])
           ) {
             this.leftGrab = frame;
-            this.leftDir = leftPointer;
+            this.leftDir = frame.getNormal();
             break;
           }
         }
@@ -172,7 +172,7 @@ export class Hands implements pfModule {
         if (this.leftGrab) {
           this.leftGrab?.getMesh()!.setParent(null);
 
-          if (this.antiparallel(this.leftDir, leftPointer, this.tolerance)) {
+          if (this.antiparallel(this.leftDir, this.leftGrab.getNormal(), this.tolerance)) {
             this.game.removeFrame(this.leftGrab);
           }
           this.leftGrab = null;
@@ -187,14 +187,14 @@ export class Hands implements pfModule {
             frame.intersects(this.rightHands[this.rightIndex])
           ) {
             this.rightGrab = frame;
-            this.rightDir = rightPointer;
+            this.rightDir = frame.getNormal();;
             break;
           }
         }
       } else {
         if (this.rightGrab) {
           this.rightGrab.getMesh()!.setParent(null);
-          if (this.antiparallel(this.rightDir, rightPointer, this.tolerance)) {
+          if (this.antiparallel(this.rightDir, this.rightGrab.getNormal(), this.tolerance)) {
             this.game.removeFrame(this.rightGrab);
           }
           this.rightGrab = null;
@@ -204,14 +204,14 @@ export class Hands implements pfModule {
 
     // Update texture on grabbed objects
     if (this.leftGrab) {
-      if (this.antiparallel(this.leftDir, leftPointer, this.tolerance)) {
+      if (this.antiparallel(this.leftDir, this.leftGrab.getNormal(), this.tolerance)) {
         this.leftGrab.setDeleteTexture(true);
       } else {
         this.leftGrab.setDeleteTexture(false);
       }
     }
     if (this.rightGrab) {
-      if (this.antiparallel(this.rightDir, rightPointer, this.tolerance)) {
+      if (this.antiparallel(this.rightDir, this.rightGrab.getNormal(), this.tolerance)) {
         this.rightGrab.setDeleteTexture(true);
       } else {
         this.rightGrab.setDeleteTexture(false);
