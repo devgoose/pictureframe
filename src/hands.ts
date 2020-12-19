@@ -19,6 +19,11 @@ export class Hands implements pfModule {
   private rightGrab: PermaFrame | null;
   private rightDir: Vector3; // keeps track of direction for deletion
 
+  private zooming: boolean; // keeps track of if we are zooming or not
+  private baseDist: number; // initial distance between controllers when starting zoom
+  private basePos: Vector3; // initial position of camera
+  private zoomFactor: number; // factor of how much to move camera during zoom
+
   private tolerance: number;
 
   // Maybe add some state management here so each module doesn't have to check 
@@ -36,6 +41,11 @@ export class Hands implements pfModule {
     this.rightIndex = 0;
     this.rightGrab = null;
     this.rightDir = new Vector3();
+
+    this.zooming = false;
+    this.baseDist = 1;
+    this.basePos = new Vector3();
+    this.zoomFactor = 10;
 
     this.tolerance = 0.2; // arbitrary choice for antiparallel check
   }
@@ -102,6 +112,7 @@ export class Hands implements pfModule {
   public update(): void {
     this.updateLeft(this.leftIndex);
     this.updateRight(this.rightIndex);
+    this.updateZoom();
   }
 
   public processController(): void {
@@ -150,7 +161,6 @@ export class Hands implements pfModule {
         for (let frame of this.game.frames) {
           // Don't grab something with two hands
           if (
-            frame !== this.rightGrab &&
             frame.intersects(this.leftHands[this.leftIndex])
           ) {
             this.leftGrab = frame;
@@ -174,7 +184,6 @@ export class Hands implements pfModule {
         for (let frame of this.game.frames) {
           // Don't grab something with two hands
           if (
-            frame !== this.leftGrab &&
             frame.intersects(this.rightHands[this.rightIndex])
           ) {
             this.rightGrab = frame;
@@ -258,7 +267,7 @@ export class Hands implements pfModule {
     }
     this.rightHands[index].visibility = 1;
     this.rightHands[index].showBoundingBox = true;
-    if (this.rightGrab) {
+    if (this.rightGrab && this.rightGrab !== this.leftGrab) {
       this.rightGrab.setParent(this.game.rightController!.pointer);
     }
   }
@@ -269,9 +278,45 @@ export class Hands implements pfModule {
     }
     this.leftHands[index].visibility = 1;
     this.leftHands[index].showBoundingBox = true;
-    if (this.leftGrab) {
+    if (this.leftGrab && this.rightGrab !== this.leftGrab) {
       this.leftGrab.setParent(this.game.leftController!.pointer);
     }
+  }
+
+  private updateZoom(): void {
+    // Must have both grabs, and they must be the same frame
+    // Also need both controllers
+    if (!(this.game.leftController &&
+      this.game.rightController &&
+      this.leftGrab &&
+      this.rightGrab &&
+      this.leftGrab === this.rightGrab)) {
+      this.zooming = false;
+      return;
+    }
+
+    this.leftGrab.setParent(null);
+    this.rightGrab.setParent(null);
+
+    // Initialize zooming state if need to
+    if (!this.zooming) {
+      this.zooming = true;
+      let controllerDist = this.game.leftController.grip!.position.subtract(this.game.rightController.grip!.position);
+      this.baseDist = controllerDist.length();
+      this.basePos = this.rightGrab.getCamera()!.position.clone();
+    }
+
+    // Adjust camera along its viewdir based on difference between
+    // controller distance once it started
+    // just using the right grab for this, they're the same so it doesn't matter
+    let rightToLeft: Vector3 = this.game.leftController.grip!.position.subtract(this.game.rightController.grip!.position);
+    let distDiff = rightToLeft.length() - this.baseDist;
+
+    let camera = this.rightGrab.getCamera();
+    let viewDir = camera!.getDirection(new Vector3(0, 0, 1));
+
+    // Offset camera by distDiff * zoomFactor
+    camera!.position = this.basePos.add(viewDir.scale(distDiff * this.zoomFactor));
   }
 
   private antiparallel(u: Vector3, v: Vector3, tolerance: number) {

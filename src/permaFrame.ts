@@ -138,12 +138,16 @@ export class PermaFrame implements pfModule {
   // This is where the controller interactions can go
   public processController(): void { }
 
-  public setParent(mesh: AbstractMesh): void {
+  public setParent(mesh: AbstractMesh | null): void {
     this.plane?.setParent(mesh);
   }
 
   public getMesh(): AbstractMesh | null {
     return this.plane;
+  }
+
+  public getCamera(): UniversalCamera | null {
+    return this.camera;
   }
 
   public intersects(mesh: AbstractMesh): boolean {

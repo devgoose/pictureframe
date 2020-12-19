@@ -1,10 +1,11 @@
 import { Scene } from "@babylonjs/core/scene";
 import { WebXRInputSource } from "@babylonjs/core";
-import { LinesMesh } from "@babylonjs/core/Meshes/linesMesh";
 import { Vector3, Color3 } from "@babylonjs/core/Maths/math";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
 
 
@@ -14,7 +15,7 @@ import { Game } from "./index";
 export class LaserPointer implements pfModule {
   game: Game;
 
-  private laserPointer: LinesMesh | null;
+  private laserPointer: Mesh | null;
   private laserActivated: boolean;
   private maxTeleport: number;
   private teleportPoint: Vector3 | null;
@@ -23,6 +24,8 @@ export class LaserPointer implements pfModule {
   private stickDeadzone: number;
   private stickNeutral: boolean;
   private turnAngle: number;
+
+  private laserOffset: Vector3;
 
   constructor(game: Game) {
     this.game = game;
@@ -36,15 +39,24 @@ export class LaserPointer implements pfModule {
     this.stickDeadzone = 0.2;
     this.stickNeutral = true;
     this.turnAngle = 30;
+
+    // Constant offset so the laser comes out of the finger.
+    // This is added to the laser and pick ray's position
+    this.laserOffset = new Vector3(0.02, 0.025, 0.09);
   }
 
   public loadAssets(): void {
-    this.laserPointer = MeshBuilder.CreateLines("laserPointer",
-      { points: [new Vector3(0, 0, 0), new Vector3(0, 0, 1)] },
+    this.laserPointer = MeshBuilder.CreateTube("laserPointer",
+      { path: [new Vector3(0, 0, 0), new Vector3(0, 0, 1)], radius: 1 },
       this.game.scene);
-    this.laserPointer.color = Color3.Red();
-    this.laserPointer.visibility = 0;
+    this.laserPointer.position = this.laserOffset; // just puts it coming out of the finger
+    this.laserPointer.setEnabled(false);
     this.laserPointer.isPickable = false;
+
+    let mat = new StandardMaterial("laserMaterial", this.game.scene);
+    mat.diffuseColor = new Color3(1, 0, 0);
+
+    this.laserPointer.material = mat;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {
@@ -56,7 +68,7 @@ export class LaserPointer implements pfModule {
   public onControllerRemoved(inputSource: WebXRInputSource): void {
     if (inputSource.uniqueId.endsWith("right")) {
       this.laserPointer!.parent = null;
-      this.laserPointer!.visibility = 0;
+      this.laserPointer!.setEnabled(false);
     }
   }
 
@@ -84,13 +96,13 @@ export class LaserPointer implements pfModule {
       this.laserActivated = true;
     } else {
       this.laserActivated = false;
-      this.laserPointer!.visibility = 0;
+      this.laserPointer!.setEnabled(false);
     }
 
     // Handle picking and teleportation
     if (this.laserActivated) {
       let ray = new Ray(
-        rightController!.pointer.position,
+        rightController!.pointer.position.add(this.laserOffset),
         rightController!.pointer.forward,
         this.maxTeleport
       );
@@ -99,8 +111,8 @@ export class LaserPointer implements pfModule {
       let teleportPoint = null;
       // First, just update the length of the lazer
       if (pickInfo!.hit && this.game.groundMeshes.includes(pickInfo!.pickedMesh!)) {
-        this.laserPointer!.visibility = 1;
-        this.laserPointer!.scaling.z = pickInfo!.distance;
+        this.laserPointer!.setEnabled(true);
+        this.laserPointer!.scaling = new Vector3(0.003, 0.003, pickInfo!.distance);
         teleportPoint = pickInfo?.pickedPoint;
       }
 
