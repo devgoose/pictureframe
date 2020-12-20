@@ -74,9 +74,7 @@ export class PermaFrame implements pfModule {
     this.camera.minZ = this.frameInfo.center
       .subtract(this.camera.position)
       .length();
-    //this.camera.minZ = 0.1;
-
-    //this.camera.fov = 0.8; // We can add the fov math here if/when we want to
+  
     this.camera.fov = this.frameInfo.fov;
 
     // Then, create the render texture from the camera
@@ -144,6 +142,10 @@ export class PermaFrame implements pfModule {
 
   public getMesh(): AbstractMesh | null {
     return this.plane;
+  }
+
+  public getBoundary(): AbstractMesh | null {
+    return this.boundary;
   }
 
   public getCamera(): UniversalCamera | null {

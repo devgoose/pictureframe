@@ -1,6 +1,6 @@
 import { Scene } from "@babylonjs/core/scene";
-import { WebXRInputSource } from "@babylonjs/core";
-import { Vector3, Color3 } from "@babylonjs/core/Maths/math";
+import { Logger, WebXRInputSource } from "@babylonjs/core";
+import { Vector3, Color3, Plane } from "@babylonjs/core/Maths/math";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -116,6 +116,23 @@ export class LaserPointer implements pfModule {
         teleportPoint = pickInfo?.pickedPoint;
       }
 
+      if (pickInfo!.hit){
+        this.game.frames.forEach((frame)=>{
+          if(pickInfo!.pickedMesh! === frame.getBoundary()){
+            // The laser has picked a frame's boundary.
+            // Need the point that the laser hits the boundary on
+            let camPos = frame.getCamera()?.position;
+            let hitPos = pickInfo!.pickedPoint?.clone();
+            let positionOnBoundary = hitPos?.subtract(frame.getBoundary()!.position);
+            let plain = Plane.FromPositionAndNormal(frame.getBoundary()!.position, frame.getNormal());
+            // Now we need to turn this into normalized coordinates
+            let xy = positionOnBoundary?.projectOnPlane(plain, frame.getBoundary()!.position);
+
+            Logger.Log("pos on boundary: " + positionOnBoundary?.toString() + "\nxy?: "+ xy?.toString());
+          }
+        });
+      }
+
       // If right trigger pressed while the gesture is activated, teleport
       if (rightTrigger!.pressed && !!teleportPoint) {
         this.teleport(teleportPoint)
@@ -143,7 +160,7 @@ export class LaserPointer implements pfModule {
   private teleport(point: Vector3) {
     let baseHeight = this.game.xrCamera!.position.y;
     this.game.xrCamera!.position = point.clone();
-    this.game.xrCamera!.position.y += baseHeight;
+    this.game.xrCamera!.position.y = baseHeight;
     this.laserActivated = false;
   }
 
