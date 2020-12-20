@@ -109,6 +109,7 @@ export class PermaFrame implements pfModule {
     this.viewportTexture = viewportTexture;
     this.deleteTexture = deleteTexture;
     this.plane.visibility = 1;
+    this.plane.isPickable = false;
 
     // Bounding boxes for hand-made meshes are bad--but good for textures
     // Using a MeshBuilder plane for the boundary, and VertexData for the actual frame
@@ -127,6 +128,7 @@ export class PermaFrame implements pfModule {
     );
     this.boundary.position = this.frameInfo.center;
     this.boundary.visibility = 0;
+    this.boundary.isPickable = true;
     this.boundary.setParent(this.plane);
   }
 
@@ -152,6 +154,10 @@ export class PermaFrame implements pfModule {
 
   public getNormal(): Vector3 {
     return this.boundary!.getDirection(new Vector3(0, 0, 1));
+  }
+
+  public getBoundary(): AbstractMesh {
+    return this.boundary!;
   }
 
   public intersects(mesh: AbstractMesh): boolean {

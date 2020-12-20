@@ -17,6 +17,11 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { ShadowGenerator } from "@babylonjs/core";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
+// physics
+import * as Cannon from "cannon";
+import { CannonJSPlugin } from "@babylonjs/core/Physics/Plugins/cannonJSPlugin";
+import { PhysicsImpostor } from "@babylonjs/core/Physics/physicsImpostor";
+
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
@@ -28,6 +33,7 @@ import { pfModule } from "./pfModule";
 import { Hands } from "./hands";
 import { previewFrame } from "./previewFrame";
 import { World } from "./world";
+import { Testbed } from "./testbed";
 import { PermaFrame } from "./permaFrame";
 import { LaserPointer } from "./laserPointer";
 
@@ -39,7 +45,9 @@ export class Game {
   public root: TransformNode;
   public frames: PermaFrame[];
   public shadowGenerator: ShadowGenerator | null;
+
   public groundMeshes: AbstractMesh[];
+  public propMeshes: AbstractMesh[];
 
   private canvas: HTMLCanvasElement;
   private engine: Engine;
@@ -47,7 +55,8 @@ export class Game {
 
   private handsModule: Hands;
   private previewFrameModule: previewFrame;
-  private worldModule: World;
+  //private worldModule: World;
+  private testbedModule: Testbed;
   private laserModule: LaserPointer;
   private modules: pfModule[];
 
@@ -63,7 +72,8 @@ export class Game {
     this.rightController = null;
     this.handsModule = new Hands(this);
     this.previewFrameModule = new previewFrame(this);
-    this.worldModule = new World(this);
+    //this.worldModule = new World(this);
+    this.testbedModule = new Testbed(this);
     this.laserModule = new LaserPointer(this);
     this.root = new TransformNode("root", this.scene);
     this.frames = [];
@@ -73,11 +83,12 @@ export class Game {
     this.modules = [
       this.handsModule,
       this.previewFrameModule,
-      this.worldModule,
+      this.testbedModule,
       this.laserModule,
     ];
 
     this.groundMeshes = [];
+    this.propMeshes = [];
   }
 
   start(): void {
@@ -165,6 +176,12 @@ export class Game {
     this.modules.forEach((pfModule) => {
       pfModule.loadAssets(this.scene);
     });
+
+    // physics
+    this.scene.enablePhysics(
+      new Vector3(0, -9.81, 0),
+      new CannonJSPlugin(undefined, undefined, Cannon)
+    );
 
     this.scene.debugLayer.show();
   }
