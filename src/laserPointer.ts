@@ -1,5 +1,5 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Logger, VertexBuffer, WebXRInputSource } from "@babylonjs/core";
+import { CubeMapToSphericalPolynomialTools, Logger, VertexBuffer, WebXRInputSource } from "@babylonjs/core";
 import { Vector3, Color3, Plane, Color4 } from "@babylonjs/core/Maths/math";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -26,6 +26,13 @@ export class LaserPointer implements pfModule {
 
   private frameLaser: LinesMesh | null;
 
+  // Spring depth manip stuff
+  private springLines: LinesMesh | null;
+  private springPos: Vector3 | null;       // Holds initial location of controller when something is selected
+  private springDeadzone: number;   // Minimum dist from initial distance that the spring can be used
+  private initDist: number;         // Set during pickup(), initial distance from controller to the pickedFrame
+  private springK: number;          // Spring strength
+
   private stickThreshold: number;
   private stickDeadzone: number;
   private stickNeutral: boolean;
@@ -48,6 +55,12 @@ export class LaserPointer implements pfModule {
 
     // TODO:Make this invisible 
     this.frameLaser = null;
+
+    this.springLines = null;
+    this.springPos = null;
+    this.springDeadzone = 0.05;
+    this.initDist = 0;
+    this.springK = 0.2;
 
     this.stickThreshold = 0.5;
     this.stickDeadzone = 0.2;
@@ -86,6 +99,16 @@ export class LaserPointer implements pfModule {
     this.frameLaser.position = this.laserOffset; // just puts it coming out of the finger
     this.frameLaser.isPickable = false;
     this.frameLaser.color = Color3.Green();
+
+    this.springLines = Mesh.CreateLines(
+      "springLines",
+      [new Vector3(0, 0, 0), new Vector3(0, 0, 1)],
+      this.game.scene,
+      true
+    );
+    this.springLines.isPickable = false;
+    this.springLines.color = Color3.Green();
+    this.springLines.visibility = 0;
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {
@@ -146,7 +169,6 @@ export class LaserPointer implements pfModule {
         let mat = <StandardMaterial>this.laserPointer!.material!;
         mat.diffuseColor = Color3.Green();
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, pickInfo!.distance);
-        console.log("Hit: ", pickInfo?.pickedMesh!.name)
 
         // Collision with ground meshes, record the teleport point
         if (this.game.groundMeshes.includes(pickInfo!.pickedMesh!)) {
@@ -231,7 +253,6 @@ export class LaserPointer implements pfModule {
 
           if (newPickInfo?.hit) {
             if (newPickInfo.pickedMesh) {
-              console.log("Frame ray picked: ", newPickInfo.pickedMesh);
               this.frameLaser = Mesh.CreateLines(
                 "camLaser",
                 [camPos, camPos.add(viewDir.scale(50))],
@@ -321,13 +342,13 @@ export class LaserPointer implements pfModule {
 
     this.picked.setParent(this.pickedParent);
     this.picked.disableEdgesRendering();
-    // if (this.picked.material) {
-    //   let mat = <StandardMaterial>(this.picked.material);
-    //   mat.emissiveColor = new Color3(0, 0, 0);
-    // }
+
     this.game.selectedObject = null;
     this.picked = null;
     this.pickedParent = null;
+
+    this.initDist = 0;
+    this.springPos = null;
   }
 
 
@@ -344,15 +365,25 @@ export class LaserPointer implements pfModule {
     this.picked = mesh;
     this.picked.edgesColor = Color4.FromColor3(Color3.Red());
     this.picked.enableEdgesRendering()
-
-    // Don't know where edgesRendering falls on the babylon render pipeline
-    // Doesn't appear to show up on my picture frames, so changing the material too
-    // if (this.picked.material) {
-    //   let mat = <StandardMaterial>(this.picked.material);
-    //   mat.emissiveColor = new Color3(200, 200, 200);
-    // }
+    this.picked.edgesWidth = 2;
     this.game.selectedObject = mesh;
     this.pickedParent = <Mesh>mesh.parent;
+
+    // Init spring dist
+    if (this.pickedFrame) {
+      let frameInfo = this.pickedFrame.getFrameInfo();
+      let verts = frameInfo?.vertexData.positions;
+      let worldTransform = this.pickedFrame.getWorldTransform();
+
+      let normal = frameInfo?.normal;
+      let point = new Vector3(verts![0], verts![1], verts![2]);
+
+      normal = Vector3.TransformCoordinates(normal!, worldTransform);
+      point = Vector3.TransformCoordinates(point, worldTransform);
+
+      this.springPos = this.game.rightController?.pointer!.position!.clone()!;
+      this.initDist = this.getDistToPlane(normal, point, this.springPos);
+    }
   }
 
   private teleport(point: Vector3) {
@@ -363,6 +394,89 @@ export class LaserPointer implements pfModule {
   }
 
   public update(): void {
+    this.updateDepth();
+  }
 
+  private updateDepth(): void {
+    if (!this.game.selectedObject || !this.springPos) {
+      console.log("Depth not updating");
+      this.springLines!.visibility = 0;
+      return;
+    }
+
+    this.springLines!.visibility = 1;
+
+    // Make all these vars
+    // Keep track of initial distance to the boundary plane, will have to calculate that
+    // Have a "distnace buffer" so that there is a deadzone
+    // If distancne is less than or greater than initDistance +- deadzone, then move by some function of dt
+
+    // First, make plane equation from world coordinates and normal of frame
+    let frameInfo = this.pickedFrame!.getFrameInfo();
+    let verts = frameInfo?.vertexData.positions;
+    let worldTransform = this.pickedFrame!.getWorldTransform();
+
+    let normal = frameInfo?.normal;
+    let point = new Vector3(verts![0], verts![1], verts![2]);
+
+    normal = Vector3.TransformCoordinates(normal!, worldTransform);
+    point = Vector3.TransformCoordinates(point, worldTransform);
+    let controllerPos = this.game.rightController?.pointer!.position!;
+
+    let dist = this.getDistToPlane(normal, point, controllerPos);
+
+    this.springLines = Mesh.CreateLines(
+      "springLines",
+      [this.springPos, controllerPos],
+      this.game.scene,
+      undefined,
+      this.springLines
+    );
+
+    // Spring equation a = -kx
+    let x;
+    // Spring is too small
+    if (Math.abs(dist - this.initDist) < this.springDeadzone) {
+      this.springLines.color = Color3.Red();
+      x = 0;
+    }
+    else {
+      this.springLines.color = Color3.Green();
+      x = dist - this.initDist > 0 ?
+        dist - this.springDeadzone - this.initDist :
+        dist + this.springDeadzone - this.initDist;
+    }
+
+    // Move selected object along frame's camera
+    let viewDir = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 0, 1));
+    let offset = viewDir?.scale(this.springK * x * this.game.getDeltaTime())
+
+    this.game.selectedObject.position.addInPlace(offset!);
+  }
+
+  private getDistToPlane(N: Vector3, Q: Vector3, P: Vector3): number {
+    // Getting shortest distance to frame by:
+    // https://mathinsight.org/distance_point_plane
+
+    // N: Normal
+    // Q: Plane point
+    // P: Query point
+    let A = N.x;
+    let B = N.y;
+    let C = N.z;
+    let D = (-A * Q.x) - (B * Q.y) - (C * Q.z);
+    let x1 = P.x;
+    let y1 = P.y;
+    let z1 = P.z;
+
+    let numerator = (Math.abs(A * x1 + B * y1 + C * z1 + D));
+    let denominator = (Math.sqrt(A * A + B * B + C * C));
+
+    if (denominator !== 0) {
+      return numerator / denominator;
+    }
+
+    // Just return a big number
+    return 10000;
   }
 }

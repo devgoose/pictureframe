@@ -218,6 +218,10 @@ export class Game {
     this.modules.splice(this.modules.indexOf(frame), 1);
     frame.destroy();
   }
+
+  public getDeltaTime(): number {
+    return this.engine.getDeltaTime();
+  }
 }
 
 let game = new Game();

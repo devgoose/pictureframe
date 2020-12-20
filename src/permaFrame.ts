@@ -46,7 +46,7 @@ export class PermaFrame implements pfModule {
     this.viewportTexture = null;
     this.deleteTexture = null;
 
-    this.textureResolution = 1024;
+    this.textureResolution = 2048;
     this.frameInfo = frameInfo;
 
     this.loadAssets(this.game.scene);

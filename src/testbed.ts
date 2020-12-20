@@ -10,6 +10,10 @@ import {
 } from "@babylonjs/core";
 import { Vector3, Color3, Quaternion } from "@babylonjs/core/Maths/math";
 import { Animation } from "@babylonjs/core/Animations/animation";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+
+//physics
 import * as Cannon from "cannon";
 import { CannonJSPlugin } from "@babylonjs/core/Physics/Plugins/cannonJSPlugin";
 import { PhysicsImpostor } from "@babylonjs/core/Physics/physicsImpostor";
