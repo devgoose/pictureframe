@@ -219,14 +219,29 @@ export class LaserPointer implements pfModule {
         // viewDir SHOULD be the direction from the camera to the object selected.
         let newRay = new Ray(camPos, viewDir);
         let newPickInfo = this.game.scene.pickWithRay(newRay);
+        
 
         this.frameLaser = Mesh.CreateLines(
           "camLaser",
           [camPos, camPos.add(viewDir.scale(50))],
-          null,
+          this.game.scene,
           undefined,
           this.frameLaser
         );
+        if(newPickInfo?.hit){
+          if(newPickInfo.pickedMesh){
+            pickedMesh = newPickInfo.pickedMesh;
+          }
+          else{
+            pickedMesh = null;
+          }
+        }
+        else{
+          pickedMesh = null;
+        }
+      }
+      else{
+        pickedMesh = null;
       }
 
 
@@ -237,46 +252,12 @@ export class LaserPointer implements pfModule {
         // PRESS trigger
         if (rightTrigger!.pressed) {
           // Handle teleport
-          if (!!teleportPoint) {
+          if (teleportPoint) {
             this.teleport(teleportPoint)
           }
-
-          // Handle picked frame
-          else if (this.pickedFrame) {
-            // The laser has picked a frame's boundary.
-            // Need the point that the laser hits the boundary on
-            // let hitPos = pickInfo!.pickedPoint?.clone();
-            // let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
-            // let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
-            // let upperRight = new Vector3(verts![3], verts![4], verts![5]);
-            // let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
-            // let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
-            // let fromTopLeftToHit = hitPos!.subtract(upperLeft);
-            // let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
-            // let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
-
-            // let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR)/this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
-            // let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB)/this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
-            // // We now have the normalized X and Y coordinates (center origin)
-
-            // let cam = this.pickedFrame.getCamera()!;
-            // let camPos = cam.position.clone();
-            // let camFOV = cam.fov;
-            // //let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
-            // let camAspectRatio = upperRight.subtract(upperLeft).length() / bottomLeft.subtract(upperLeft).length();
-            // let hFOV = 2*Math.atan(camAspectRatio * Math.tan(camFOV/2));
-            // let viewDir = cam.getDirection(new Vector3(0, 0, 1)).clone();
-            // let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV/2, nX * hFOV/2, 0))
-            // viewDir.rotateByQuaternionToRef(rotQ, viewDir);
-            // // newDir SHOULD be the direction from the camera to the object selected.
-            // let newRay = new Ray(camPos, viewDir);
-            // let newPickInfo = this.game.scene.pickWithRay(newRay);
-
-            // if(newPickInfo?.hit){
-            //   newPickInfo.pickedMesh!.edgesColor = Color4.FromColor3(Color3.Red());
-            //   newPickInfo.pickedMesh!.enableEdgesRendering();
-            // }
-
+          else if (pickedMesh){
+            this.drop();
+            this.pickup(pickedMesh);
           }
         }
 
@@ -286,6 +267,9 @@ export class LaserPointer implements pfModule {
         }
       }
 
+    }
+    else{
+      this.drop();
     }
 
     // Handle rotation here too... not really "laser pointer" but locomotive so I'll just stick it here
@@ -323,7 +307,8 @@ export class LaserPointer implements pfModule {
     }
 
     this.picked.setParent(this.pickedParent);
-
+    this.picked.disableEdgesRendering();
+    this.game.selectedObject = null;
     this.picked = null;
     this.pickedParent = null;
   }
@@ -335,12 +320,14 @@ export class LaserPointer implements pfModule {
     if (this.picked) {
       return;
     }
-
+    
     if (mesh.physicsImpostor) {
       mesh.physicsImpostor.sleep();
     }
-
     this.picked = mesh;
+    this.picked.edgesColor = Color4.FromColor3(Color3.Red());
+    this.picked.enableEdgesRendering()
+    this.game.selectedObject = mesh;
     this.pickedParent = <Mesh>mesh.parent;
   }
 

@@ -14,7 +14,7 @@ import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { ShadowGenerator } from "@babylonjs/core";
+import { Mesh, ShadowGenerator } from "@babylonjs/core";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 // physics
@@ -44,6 +44,7 @@ export class Game {
   public rightController: WebXRInputSource | null;
   public root: TransformNode;
   public frames: PermaFrame[];
+  public selectedObject: AbstractMesh | null;
   public shadowGenerator: ShadowGenerator | null;
 
   public groundMeshes: AbstractMesh[];
@@ -77,6 +78,7 @@ export class Game {
     this.laserModule = new LaserPointer(this);
     this.root = new TransformNode("root", this.scene);
     this.frames = [];
+    this.selectedObject = null;
     this.shadowGenerator = null;
 
     // Define modules with common pfModule interface here
