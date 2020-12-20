@@ -139,7 +139,7 @@ export class Game {
     this.shadowGenerator = new ShadowGenerator(2048, directionalLight);
 
     const environment = this.scene.createDefaultEnvironment({
-      createGround: true,
+      createGround: false,
       groundSize: 10,
       skyboxSize: 100,
       skyboxColor: new Color3(0, 0, 0),
