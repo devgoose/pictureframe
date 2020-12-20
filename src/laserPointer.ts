@@ -238,12 +238,12 @@ export class LaserPointer implements pfModule {
               pickedMesh = null;
             }
           }
-          else{
+          else {
             pickedMesh = null;
           }
         }
       }
-      else{
+      else {
         pickedMesh = null;
       }
 
@@ -258,7 +258,7 @@ export class LaserPointer implements pfModule {
           if (teleportPoint) {
             this.teleport(teleportPoint)
           }
-          else if (pickedMesh){
+          else if (pickedMesh) {
             this.drop();
             this.pickup(pickedMesh);
           }
@@ -271,7 +271,7 @@ export class LaserPointer implements pfModule {
       }
 
     }
-    else{
+    else {
       this.drop();
     }
 
@@ -323,7 +323,7 @@ export class LaserPointer implements pfModule {
     if (this.picked) {
       return;
     }
-    
+
     if (mesh.physicsImpostor) {
       mesh.physicsImpostor.sleep();
     }
