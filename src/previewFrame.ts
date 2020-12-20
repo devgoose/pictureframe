@@ -161,6 +161,9 @@ export class previewFrame implements pfModule {
       topRight.subtract(topLeft)
     ).normalize();
 
+
+
+
     // This should remain the same regardless of the corner
     // determination method.
     let positions = [
@@ -207,12 +210,12 @@ export class previewFrame implements pfModule {
       this.framePreview!.material = this.redMaterial;
     } else {
       this.framePreview!.material = this.greenMaterial;
-      this.finalheight = Math.abs(height);
-      this.finalwidth = Math.abs(width);
+      this.finalNormal = normal.clone();
+      this.finalhDir = botLeft.subtract(topLeft).normalize();
+      this.finalwDir = topRight.subtract(topLeft).normalize();
+      this.finalheight = botLeft.subtract(topLeft).length();
+      this.finalwidth = topRight.subtract(topLeft).length();
       this.finalVertexData = vertexData;
-      this.finalNormal = normal;
-      this.finalhDir = hDir;
-      this.finalwDir = wDir;
     }
 
     // get center of the plane

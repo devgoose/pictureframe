@@ -5,13 +5,16 @@ import { Ray } from "@babylonjs/core/Culling/ray";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import { LinesMesh } from "@babylonjs/core/Meshes/linesMesh";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Matrix } from "@babylonjs/core/Maths/math";
 
 
 
 import { pfModule } from "./pfModule";
 import { Game } from "./index";
+import { PermaFrame } from "./permaFrame";
 
 export class LaserPointer implements pfModule {
   game: Game;
@@ -21,6 +24,8 @@ export class LaserPointer implements pfModule {
   private maxTeleport: number;
   private teleportPoint: Vector3 | null;
 
+  private frameLaser: LinesMesh | null;
+
   private stickThreshold: number;
   private stickDeadzone: number;
   private stickNeutral: boolean;
@@ -28,6 +33,8 @@ export class LaserPointer implements pfModule {
 
   private picked: AbstractMesh | null;
   private pickedParent: AbstractMesh | null;
+
+  private pickedFrame: PermaFrame | null;
 
   private laserOffset: Vector3;
 
@@ -39,6 +46,8 @@ export class LaserPointer implements pfModule {
     this.maxTeleport = 100; // max distance the ray is cast
     this.teleportPoint = null;
 
+    this.frameLaser = null;
+
     this.stickThreshold = 0.5;
     this.stickDeadzone = 0.2;
     this.stickNeutral = true;
@@ -46,6 +55,8 @@ export class LaserPointer implements pfModule {
 
     this.picked = null;
     this.pickedParent = null;
+
+    this.pickedFrame = null;
 
     // Constant offset so the laser comes out of the finger.
     // This is added to the laser and pick ray's position
@@ -65,6 +76,15 @@ export class LaserPointer implements pfModule {
     mat.diffuseColor = new Color3(1, 0, 0);
 
     this.laserPointer.material = mat;
+
+    this.frameLaser = Mesh.CreateLines(
+      "camLaser",
+      [new Vector3(0, 0, 0), new Vector3(0, 0, 20)],
+      this.game.scene,
+      true);
+    this.frameLaser.position = this.laserOffset; // just puts it coming out of the finger
+    this.frameLaser.isPickable = false;
+    this.frameLaser.color = Color3.Green();
   }
 
   public onControllerAdded(inputSource: WebXRInputSource): void {
@@ -119,7 +139,6 @@ export class LaserPointer implements pfModule {
 
       let teleportPoint = null;
       let pickedMesh = null;
-      let pickedFrame = null;
 
       if (pickInfo!.hit) {
         // If anything is hit, change color and length
@@ -142,9 +161,10 @@ export class LaserPointer implements pfModule {
           // check if it hits a frame
           for (let frame of this.game.frames) {
             if (frame.getBoundary() === pickInfo!.pickedMesh) {
-              pickedFrame = frame;
+              this.pickedFrame = frame;
               break;
             }
+            this.pickedFrame = null;
           }
         }
 
@@ -152,6 +172,54 @@ export class LaserPointer implements pfModule {
         let mat = <StandardMaterial>this.laserPointer!.material!;
         mat.diffuseColor = Color3.Red();
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, this.maxTeleport);
+      }
+
+      if (this.pickedFrame) {
+        let hitPos = pickInfo!.pickedPoint?.clone();
+        let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
+        let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
+        let upperRight = new Vector3(verts![3], verts![4], verts![5]);
+        let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
+        let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
+        let fromTopLeftToHit = hitPos!.subtract(upperLeft);
+        let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
+        let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
+
+        let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR) / this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
+        let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB) / this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+        // We now have the normalized X and Y coordinates (center origin)
+
+        let cam = this.pickedFrame.getCamera()!;
+        let camPos = cam.position.clone();
+        let camFOV = cam.fov;
+        //let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
+        let camAspectRatio = upperRight.subtract(upperLeft).length() / bottomLeft.subtract(upperLeft).length();
+        let hFOV = 2 * Math.atan(camAspectRatio * Math.tan(camFOV / 2));
+
+        let viewDir = cam.getDirection(new Vector3(0, 0, 1));
+        let upDir = cam.getDirection(new Vector3(0, 1, 0));
+        let rightDir = cam.getDirection(new Vector3(1, 0, 0));
+
+        let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV / 2, nX * hFOV / 2, 0))
+        viewDir.rotateByQuaternionToRef(rotQ, viewDir);
+
+        let hRot = Matrix.RotationAxis(upDir, nX * hFOV / 2);
+        let vRot = Matrix.RotationAxis(rightDir, nY * camFOV / 2);
+
+        viewDir = Vector3.TransformCoordinates(viewDir, hRot);
+        viewDir = Vector3.TransformCoordinates(viewDir, vRot);
+
+        // viewDir SHOULD be the direction from the camera to the object selected.
+        let newRay = new Ray(camPos, viewDir);
+        let newPickInfo = this.game.scene.pickWithRay(newRay);
+
+        this.frameLaser = Mesh.CreateLines(
+          "camLaser",
+          [camPos, camPos.add(viewDir.scale(50))],
+          null,
+          undefined,
+          this.frameLaser
+        );
       }
 
 
@@ -167,44 +235,40 @@ export class LaserPointer implements pfModule {
           }
 
           // Handle picked frame
-          else if (pickedFrame) {
+          else if (this.pickedFrame) {
             // The laser has picked a frame's boundary.
             // Need the point that the laser hits the boundary on
-            let hitPos = pickInfo!.pickedPoint?.clone();
-<<<<<<< HEAD
-            let positionOnBoundary = hitPos?.subtract(pickedFrame.getBoundary()!.position);
-=======
-            let verts = pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
-            let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
-            let upperRight = new Vector3(verts![3], verts![4], verts![5]);
-            let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
-            let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
-            let fromTopLeftToHit = hitPos!.subtract(upperLeft);
-            let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
-            let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
-            
-            let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR)/pickedFrame.getFrameInfo()!.width - 0.5) * 2;
-            let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB)/pickedFrame.getFrameInfo()!.height - 0.5) * 2;
-            // We now have the normalized X and Y coordinates (center origin)
-            
-            let cam = pickedFrame.getCamera()!;
-            let camPos = cam.position;
-            let camFOV = cam.fov;
-            let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
-            let hFOV = 2*Math.atan(camAspectRatio * Math.tan(camFOV/2));
-            let viewDir = cam.getDirection(new Vector3(0, 0, 1));
-            let newDir = viewDir.clone();
-            let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV/2, nX * hFOV/2, 0))
-            newDir.rotateByQuaternionToRef(rotQ, newDir);
-            // newDir SHOULD be the direction from the camera to the object selected.
-            let newRay = new Ray(camPos, newDir);
-            let newPickInfo = this.game.scene.pickWithRay(newRay);
+            // let hitPos = pickInfo!.pickedPoint?.clone();
+            // let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
+            // let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
+            // let upperRight = new Vector3(verts![3], verts![4], verts![5]);
+            // let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
+            // let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
+            // let fromTopLeftToHit = hitPos!.subtract(upperLeft);
+            // let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
+            // let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
 
-            if(newPickInfo?.hit){
-              newPickInfo.pickedMesh!.edgesColor = Color4.FromColor3(Color3.Red());
-              newPickInfo.pickedMesh!.enableEdgesRendering();
-            }
->>>>>>> e8aa3c08976a2f8c60bf8c86b9249c5ccc431a57
+            // let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR)/this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
+            // let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB)/this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+            // // We now have the normalized X and Y coordinates (center origin)
+
+            // let cam = this.pickedFrame.getCamera()!;
+            // let camPos = cam.position.clone();
+            // let camFOV = cam.fov;
+            // //let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
+            // let camAspectRatio = upperRight.subtract(upperLeft).length() / bottomLeft.subtract(upperLeft).length();
+            // let hFOV = 2*Math.atan(camAspectRatio * Math.tan(camFOV/2));
+            // let viewDir = cam.getDirection(new Vector3(0, 0, 1)).clone();
+            // let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV/2, nX * hFOV/2, 0))
+            // viewDir.rotateByQuaternionToRef(rotQ, viewDir);
+            // // newDir SHOULD be the direction from the camera to the object selected.
+            // let newRay = new Ray(camPos, viewDir);
+            // let newPickInfo = this.game.scene.pickWithRay(newRay);
+
+            // if(newPickInfo?.hit){
+            //   newPickInfo.pickedMesh!.edgesColor = Color4.FromColor3(Color3.Red());
+            //   newPickInfo.pickedMesh!.enableEdgesRendering();
+            // }
 
           }
         }

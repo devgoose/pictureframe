@@ -56,7 +56,6 @@ export class Testbed implements pfModule {
     worldTask.onSuccess = function (task) {
       task.loadedMeshes.forEach((mesh) => {
         //self.game.shadowGenerator!.getShadowMap()?.renderList?.push(mesh);
-        console.log("Loading: ", mesh.name);
 
         if (mesh.name === "__root__") {
           self.root = mesh;
@@ -64,7 +63,6 @@ export class Testbed implements pfModule {
           mesh.scaling = new Vector3(scale, scale, scale);
           let offset = new Vector3(0, -1, 0);
           mesh.position.addInPlace(offset);
-          console.log("root loaded");
         }
 
 
@@ -105,11 +103,7 @@ export class Testbed implements pfModule {
             { mass: 1, ignoreParent: true },
             self.game.scene
           );
-          if (mesh.physicsImpostor) {
-            console.log("succeeded");
-          }
           mesh.physicsImpostor.wakeUp();
-          console.log("Cube loaded");
         }
 
         // Target does not have physics, but is pickable
@@ -129,7 +123,6 @@ export class Testbed implements pfModule {
             self.game.scene
           );
           mesh.physicsImpostor.wakeUp();
-          console.log("Ground loaded");
         }
 
         // laser  is not pickable, initialize it's animation
@@ -165,7 +158,6 @@ export class Testbed implements pfModule {
             38,
             true
           );
-          console.log("Laser loaded");
         }
       });
 
