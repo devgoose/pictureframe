@@ -1,5 +1,5 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3, Plane } from "@babylonjs/core/Maths/math";
+import { Vector3, Plane, Matrix } from "@babylonjs/core/Maths/math";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
@@ -90,6 +90,8 @@ export class PermaFrame implements pfModule {
     );
     scene.customRenderTargets.push(viewportTexture);
     viewportTexture.activeCamera = this.camera;
+
+    // Change this so it doesn't include this mesh
     viewportTexture.renderList = this.game.scene.meshes;
 
     // First, create the actual frame mesh, and correctly set the UVs
@@ -164,6 +166,10 @@ export class PermaFrame implements pfModule {
 
   public getNormal(): Vector3 {
     return this.boundary!.getDirection(new Vector3(0, 0, 1));
+  }
+
+  public getWorldTransform(): Matrix {
+    return this.plane?.getWorldMatrix()!;
   }
 
   public intersects(mesh: AbstractMesh): boolean {

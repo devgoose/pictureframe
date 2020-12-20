@@ -180,15 +180,22 @@ export class LaserPointer implements pfModule {
         let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
         let upperRight = new Vector3(verts![3], verts![4], verts![5]);
         let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
-        let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
+
+        let transform = this.pickedFrame.getWorldTransform();
+        upperLeft = Vector3.TransformCoordinates(upperLeft, transform);
+        upperRight = Vector3.TransformCoordinates(upperRight, transform);
+        bottomLeft = Vector3.TransformCoordinates(bottomLeft, transform);
+
         let fromTopLeftToHit = hitPos!.subtract(upperLeft);
-        let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
-        let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
+        let topEdge = upperRight.subtract(upperLeft);
+        let leftEdge = bottomLeft.subtract(upperLeft);
 
-        let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR) / this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
-        let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB) / this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+        let nX = (Vector3.Dot(fromTopLeftToHit, topEdge.normalize()) /
+          this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
+        let nY = (Vector3.Dot(fromTopLeftToHit, leftEdge.normalize()) /
+          this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+
         // We now have the normalized X and Y coordinates (center origin)
-
         let cam = this.pickedFrame.getCamera()!;
         let camPos = cam.position.clone();
         let camFOV = cam.fov;
@@ -200,8 +207,8 @@ export class LaserPointer implements pfModule {
         let upDir = cam.getDirection(new Vector3(0, 1, 0));
         let rightDir = cam.getDirection(new Vector3(1, 0, 0));
 
-        let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV / 2, nX * hFOV / 2, 0))
-        viewDir.rotateByQuaternionToRef(rotQ, viewDir);
+        // let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV / 2, nX * hFOV / 2, 0))
+        // viewDir.rotateByQuaternionToRef(rotQ, viewDir);
 
         let hRot = Matrix.RotationAxis(upDir, nX * hFOV / 2);
         let vRot = Matrix.RotationAxis(rightDir, nY * camFOV / 2);
