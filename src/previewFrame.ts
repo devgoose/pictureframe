@@ -83,11 +83,12 @@ export class previewFrame implements pfModule {
     this.framePreview = new Mesh("custom", scene, null, null, false);
     this.framePreview.visibility = 0;
     this.framePreview.material = this.redMaterial;
+    this.framePreview.isPickable = false;
   }
 
-  public onControllerAdded(inputSource: WebXRInputSource): void {}
+  public onControllerAdded(inputSource: WebXRInputSource): void { }
 
-  public onControllerRemoved(inputSource: WebXRInputSource): void {}
+  public onControllerRemoved(inputSource: WebXRInputSource): void { }
 
   public update(): void {
     let leftController = this.game.leftController;

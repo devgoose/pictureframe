@@ -49,7 +49,8 @@ export class LaserPointer implements pfModule {
 
     // Constant offset so the laser comes out of the finger.
     // This is added to the laser and pick ray's position
-    this.laserOffset = new Vector3(0.02, 0.025, 0.09);
+    //this.laserOffset = new Vector3(0.02, 0.025, 0.09);
+    this.laserOffset = new Vector3(0, 0, 0);
   }
 
   public loadAssets(): void {
@@ -125,6 +126,7 @@ export class LaserPointer implements pfModule {
         let mat = <StandardMaterial>this.laserPointer!.material!;
         mat.diffuseColor = Color3.Green();
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, pickInfo!.distance);
+        console.log("Hit: ", pickInfo?.pickedMesh!.name)
 
         // Collision with ground meshes, record the teleport point
         if (this.game.groundMeshes.includes(pickInfo!.pickedMesh!)) {
@@ -149,6 +151,7 @@ export class LaserPointer implements pfModule {
       } else {
         let mat = <StandardMaterial>this.laserPointer!.material!;
         mat.diffuseColor = Color3.Red();
+        this.laserPointer!.scaling = new Vector3(0.003, 0.003, this.maxTeleport);
       }
 
 
@@ -170,7 +173,7 @@ export class LaserPointer implements pfModule {
             let camPos = pickedFrame.getCamera()?.position;
             let hitPos = pickInfo!.pickedPoint?.clone();
             let positionOnBoundary = hitPos?.subtract(pickedFrame.getBoundary()!.position);
-            
+
           }
         }
 

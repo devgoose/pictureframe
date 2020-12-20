@@ -74,7 +74,7 @@ export class PermaFrame implements pfModule {
     this.camera.minZ = this.frameInfo.center
       .subtract(this.camera.position)
       .length();
-  
+
     this.camera.fov = this.frameInfo.fov;
 
     // Then, create the render texture from the camera
@@ -120,12 +120,12 @@ export class PermaFrame implements pfModule {
       this.game.scene
     );
     this.boundary.rotation = Vector3.RotationFromAxis(
-      this.frameInfo.wDir,
-      this.frameInfo.hDir.scale(-1),
-      this.frameInfo.normal
+      this.frameInfo.wDir.normalize(),
+      this.frameInfo.hDir.scale(-1).normalize(),
+      this.frameInfo.normal.normalize()
     );
     this.boundary.position = this.frameInfo.center;
-    this.boundary.visibility = 0;
+    this.boundary.visibility = 1;
     this.boundary.isPickable = true;
     this.boundary.setParent(this.plane);
   }

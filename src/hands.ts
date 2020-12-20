@@ -266,7 +266,7 @@ export class Hands implements pfModule {
       return;
     }
     this.rightHands[index].visibility = 1;
-    this.rightHands[index].showBoundingBox = true;
+    this.rightHands[index].showBoundingBox = false;
     if (this.rightGrab && this.rightGrab !== this.leftGrab) {
       this.rightGrab.setParent(this.game.rightController!.pointer);
     }
@@ -277,7 +277,7 @@ export class Hands implements pfModule {
       return;
     }
     this.leftHands[index].visibility = 1;
-    this.leftHands[index].showBoundingBox = true;
+    this.leftHands[index].showBoundingBox = false;
     if (this.leftGrab && this.rightGrab !== this.leftGrab) {
       this.leftGrab.setParent(this.game.leftController!.pointer);
     }
