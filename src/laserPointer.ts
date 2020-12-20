@@ -175,69 +175,72 @@ export class LaserPointer implements pfModule {
       }
 
       if (this.pickedFrame) {
-        let hitPos = pickInfo!.pickedPoint?.clone();
-        let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
-        let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
-        let upperRight = new Vector3(verts![3], verts![4], verts![5]);
-        let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
+        if (pickInfo?.pickedPoint) {
+          let hitPos = pickInfo!.pickedPoint?.clone();
+          let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
+          let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
+          let upperRight = new Vector3(verts![3], verts![4], verts![5]);
+          let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
 
-        let transform = this.pickedFrame.getWorldTransform();
-        upperLeft = Vector3.TransformCoordinates(upperLeft, transform);
-        upperRight = Vector3.TransformCoordinates(upperRight, transform);
-        bottomLeft = Vector3.TransformCoordinates(bottomLeft, transform);
+          let transform = this.pickedFrame.getWorldTransform();
+          upperLeft = Vector3.TransformCoordinates(upperLeft, transform);
+          upperRight = Vector3.TransformCoordinates(upperRight, transform);
+          bottomLeft = Vector3.TransformCoordinates(bottomLeft, transform);
 
-        let fromTopLeftToHit = hitPos!.subtract(upperLeft);
-        let topEdge = upperRight.subtract(upperLeft);
-        let leftEdge = bottomLeft.subtract(upperLeft);
+          let fromTopLeftToHit = hitPos!.subtract(upperLeft);
+          let topEdge = upperRight.subtract(upperLeft);
+          let leftEdge = bottomLeft.subtract(upperLeft);
 
-        let nX = (Vector3.Dot(fromTopLeftToHit, topEdge.normalize()) /
-          this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
-        let nY = (Vector3.Dot(fromTopLeftToHit, leftEdge.normalize()) /
-          this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+          let nX = (Vector3.Dot(fromTopLeftToHit, topEdge.normalize()) /
+            this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
+          let nY = (Vector3.Dot(fromTopLeftToHit, leftEdge.normalize()) /
+            this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
 
-        // We now have the normalized X and Y coordinates (center origin)
-        let cam = this.pickedFrame.getCamera()!;
-        let camPos = cam.position.clone();
-        let camFOV = cam.fov;
-        //let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
-        let camAspectRatio = upperRight.subtract(upperLeft).length() / bottomLeft.subtract(upperLeft).length();
-        let hFOV = 2 * Math.atan(camAspectRatio * Math.tan(camFOV / 2));
+          // We now have the normalized X and Y coordinates (center origin)
+          let cam = this.pickedFrame.getCamera()!;
+          let camPos = cam.position.clone();
+          let camFOV = cam.fov;
+          //let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
+          let camAspectRatio = upperRight.subtract(upperLeft).length() / bottomLeft.subtract(upperLeft).length();
+          let hFOV = 2 * Math.atan(camAspectRatio * Math.tan(camFOV / 2));
 
-        let viewDir = cam.getDirection(new Vector3(0, 0, 1));
-        let upDir = cam.getDirection(new Vector3(0, 1, 0));
-        let rightDir = cam.getDirection(new Vector3(1, 0, 0));
+          let viewDir = cam.getDirection(new Vector3(0, 0, 1));
+          let upDir = cam.getDirection(new Vector3(0, 1, 0));
+          let rightDir = cam.getDirection(new Vector3(1, 0, 0));
 
-        // let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV / 2, nX * hFOV / 2, 0))
-        // viewDir.rotateByQuaternionToRef(rotQ, viewDir);
+          // let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV / 2, nX * hFOV / 2, 0))
+          // viewDir.rotateByQuaternionToRef(rotQ, viewDir);
 
-        let hRot = Matrix.RotationAxis(upDir, nX * hFOV / 2);
-        let vRot = Matrix.RotationAxis(rightDir, nY * camFOV / 2);
+          let hRot = Matrix.RotationAxis(upDir, nX * hFOV / 2);
+          let vRot = Matrix.RotationAxis(rightDir, nY * camFOV / 2);
 
-        viewDir = Vector3.TransformCoordinates(viewDir, hRot);
-        viewDir = Vector3.TransformCoordinates(viewDir, vRot);
+          viewDir = Vector3.TransformCoordinates(viewDir, hRot);
+          viewDir = Vector3.TransformCoordinates(viewDir, vRot);
 
-        // viewDir SHOULD be the direction from the camera to the object selected.
-        let newRay = new Ray(camPos, viewDir);
-        let newPickInfo = this.game.scene.pickWithRay(newRay);
-        
-
-        this.frameLaser = Mesh.CreateLines(
-          "camLaser",
-          [camPos, camPos.add(viewDir.scale(50))],
-          this.game.scene,
-          undefined,
-          this.frameLaser
-        );
-        if(newPickInfo?.hit){
-          if(newPickInfo.pickedMesh){
-            pickedMesh = newPickInfo.pickedMesh;
+          // viewDir SHOULD be the direction from the camera to the object selected.
+          let newRay = new Ray(camPos, viewDir);
+          let newPickInfo = this.game.scene.pickWithRay(newRay);
+          
+          if(newPickInfo?.hit){
+            if(newPickInfo.pickedMesh){
+              this.frameLaser = Mesh.CreateLines(
+                "camLaser",
+                [camPos, camPos.add(viewDir.scale(50))],
+                this.game.scene,
+                undefined,
+                this.frameLaser
+              );
+              pickedMesh = newPickInfo.pickedMesh;
+            }
+            else{
+              this.frameLaser?.dispose();
+              this.frameLaser = null;
+              pickedMesh = null;
+            }
           }
           else{
             pickedMesh = null;
           }
-        }
-        else{
-          pickedMesh = null;
         }
       }
       else{
