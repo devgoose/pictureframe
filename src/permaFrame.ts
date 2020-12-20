@@ -63,7 +63,7 @@ export class PermaFrame implements pfModule {
       this.game.xrCamera!.position.clone(),
       scene
     );
-    //this.camera.setTarget(this.camera.position.add(this.viewDir.scale(10000)));
+
     if (this.game.xrCamera!.rotationQuaternion) {
       this.camera.rotationQuaternion = this.game.xrCamera!.rotationQuaternion.clone();
     } else {
@@ -148,6 +148,14 @@ export class PermaFrame implements pfModule {
 
   public getBoundary(): AbstractMesh | null {
     return this.boundary;
+  }
+
+  public getFrameInfo(): FrameInfo | null {
+    return this.frameInfo;
+  }
+
+  public getPlane(): AbstractMesh | null {
+    return this.plane;
   }
 
   public getCamera(): UniversalCamera | null {

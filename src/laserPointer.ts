@@ -1,6 +1,6 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Logger, WebXRInputSource } from "@babylonjs/core";
-import { Vector3, Color3, Plane } from "@babylonjs/core/Maths/math";
+import { Logger, VertexBuffer, WebXRInputSource } from "@babylonjs/core";
+import { Vector3, Color3, Plane, Color4 } from "@babylonjs/core/Maths/math";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -170,9 +170,41 @@ export class LaserPointer implements pfModule {
           else if (pickedFrame) {
             // The laser has picked a frame's boundary.
             // Need the point that the laser hits the boundary on
-            let camPos = pickedFrame.getCamera()?.position;
             let hitPos = pickInfo!.pickedPoint?.clone();
+<<<<<<< HEAD
             let positionOnBoundary = hitPos?.subtract(pickedFrame.getBoundary()!.position);
+=======
+            let verts = pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
+            let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
+            let upperRight = new Vector3(verts![3], verts![4], verts![5]);
+            let bottomLeft = new Vector3(verts![6], verts![7], verts![8]);
+            let bottomRight = new Vector3(verts![9], verts![10], verts![11]);
+            let fromTopLeftToHit = hitPos!.subtract(upperLeft);
+            let topEdgeLToR = upperRight.subtract(upperLeft).normalize();
+            let leftEdgeTToB = bottomLeft.subtract(upperLeft).normalize();
+            
+            let nX = (Vector3.Dot(fromTopLeftToHit, topEdgeLToR)/pickedFrame.getFrameInfo()!.width - 0.5) * 2;
+            let nY = (Vector3.Dot(fromTopLeftToHit, leftEdgeTToB)/pickedFrame.getFrameInfo()!.height - 0.5) * 2;
+            // We now have the normalized X and Y coordinates (center origin)
+            
+            let cam = pickedFrame.getCamera()!;
+            let camPos = cam.position;
+            let camFOV = cam.fov;
+            let camAspectRatio = this.game.scene.getEngine().getAspectRatio(cam);
+            let hFOV = 2*Math.atan(camAspectRatio * Math.tan(camFOV/2));
+            let viewDir = cam.getDirection(new Vector3(0, 0, 1));
+            let newDir = viewDir.clone();
+            let rotQ = Quaternion.FromEulerVector(new Vector3(nY * camFOV/2, nX * hFOV/2, 0))
+            newDir.rotateByQuaternionToRef(rotQ, newDir);
+            // newDir SHOULD be the direction from the camera to the object selected.
+            let newRay = new Ray(camPos, newDir);
+            let newPickInfo = this.game.scene.pickWithRay(newRay);
+
+            if(newPickInfo?.hit){
+              newPickInfo.pickedMesh!.edgesColor = Color4.FromColor3(Color3.Red());
+              newPickInfo.pickedMesh!.enableEdgesRendering();
+            }
+>>>>>>> e8aa3c08976a2f8c60bf8c86b9249c5ccc431a57
 
           }
         }
