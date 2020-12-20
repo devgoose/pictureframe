@@ -266,13 +266,10 @@ export class LaserPointer implements pfModule {
 
         // RELEASE trigger
         else {
-
+          this.drop();
         }
       }
 
-    }
-    else {
-      this.drop();
     }
 
     // Handle rotation here too... not really "laser pointer" but locomotive so I'll just stick it here
