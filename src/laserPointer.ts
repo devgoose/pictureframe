@@ -174,7 +174,7 @@ export class LaserPointer implements pfModule {
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, this.maxTeleport);
       }
 
-      if (this.pickedFrame) {
+      if (this.pickedFrame && pickInfo!.pickedPoint) {
         let hitPos = pickInfo!.pickedPoint?.clone();
         let verts = this.pickedFrame.getPlane()?.getVerticesData(VertexBuffer.PositionKind);
         let upperLeft = new Vector3(verts![0], verts![1], verts![2]);
@@ -219,7 +219,7 @@ export class LaserPointer implements pfModule {
         // viewDir SHOULD be the direction from the camera to the object selected.
         let newRay = new Ray(camPos, viewDir);
         let newPickInfo = this.game.scene.pickWithRay(newRay);
-        
+
 
         this.frameLaser = Mesh.CreateLines(
           "camLaser",
@@ -228,19 +228,19 @@ export class LaserPointer implements pfModule {
           undefined,
           this.frameLaser
         );
-        if(newPickInfo?.hit){
-          if(newPickInfo.pickedMesh){
+        if (newPickInfo?.hit) {
+          if (newPickInfo.pickedMesh) {
             pickedMesh = newPickInfo.pickedMesh;
           }
-          else{
+          else {
             pickedMesh = null;
           }
         }
-        else{
+        else {
           pickedMesh = null;
         }
       }
-      else{
+      else {
         pickedMesh = null;
       }
 
@@ -255,7 +255,7 @@ export class LaserPointer implements pfModule {
           if (teleportPoint) {
             this.teleport(teleportPoint)
           }
-          else if (pickedMesh){
+          else if (pickedMesh) {
             this.drop();
             this.pickup(pickedMesh);
           }
@@ -268,7 +268,7 @@ export class LaserPointer implements pfModule {
       }
 
     }
-    else{
+    else {
       this.drop();
     }
 
@@ -320,7 +320,7 @@ export class LaserPointer implements pfModule {
     if (this.picked) {
       return;
     }
-    
+
     if (mesh.physicsImpostor) {
       mesh.physicsImpostor.sleep();
     }
