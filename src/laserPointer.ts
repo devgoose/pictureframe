@@ -164,11 +164,13 @@ export class LaserPointer implements pfModule {
               this.pickedFrame = frame;
               break;
             }
+            
             this.pickedFrame = null;
           }
         }
 
       } else {
+        this.drop();
         let mat = <StandardMaterial>this.laserPointer!.material!;
         mat.diffuseColor = Color3.Red();
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, this.maxTeleport);
@@ -244,6 +246,7 @@ export class LaserPointer implements pfModule {
         }
       }
       else {
+        this.drop();
         pickedMesh = null;
       }
 
@@ -270,6 +273,9 @@ export class LaserPointer implements pfModule {
         }
       }
 
+    }
+    else{
+      this.drop();
     }
 
     // Handle rotation here too... not really "laser pointer" but locomotive so I'll just stick it here
