@@ -46,6 +46,7 @@ export class LaserPointer implements pfModule {
     this.maxTeleport = 100; // max distance the ray is cast
     this.teleportPoint = null;
 
+    // TODO:Make this invisible 
     this.frameLaser = null;
 
     this.stickThreshold = 0.5;
@@ -164,7 +165,7 @@ export class LaserPointer implements pfModule {
               this.pickedFrame = frame;
               break;
             }
-            
+
             this.pickedFrame = null;
           }
         }
@@ -221,10 +222,16 @@ export class LaserPointer implements pfModule {
 
           // viewDir SHOULD be the direction from the camera to the object selected.
           let newRay = new Ray(camPos, viewDir);
-          let newPickInfo = this.game.scene.pickWithRay(newRay);
-          
-          if(newPickInfo?.hit){
-            if(newPickInfo.pickedMesh){
+          let newPickInfo = this.game.scene.pickWithRay(newRay, function (pick) {
+            if (!pick.isPickable || pick.name === "frameBoundary") {
+              return false;
+            }
+            return true;
+          });
+
+          if (newPickInfo?.hit) {
+            if (newPickInfo.pickedMesh) {
+              console.log("Frame ray picked: ", newPickInfo.pickedMesh);
               this.frameLaser = Mesh.CreateLines(
                 "camLaser",
                 [camPos, camPos.add(viewDir.scale(50))],
@@ -234,7 +241,7 @@ export class LaserPointer implements pfModule {
               );
               pickedMesh = newPickInfo.pickedMesh;
             }
-            else{
+            else {
               this.frameLaser?.dispose();
               this.frameLaser = null;
               pickedMesh = null;
@@ -274,7 +281,7 @@ export class LaserPointer implements pfModule {
       }
 
     }
-    else{
+    else {
       this.drop();
     }
 
@@ -314,6 +321,10 @@ export class LaserPointer implements pfModule {
 
     this.picked.setParent(this.pickedParent);
     this.picked.disableEdgesRendering();
+    // if (this.picked.material) {
+    //   let mat = <StandardMaterial>(this.picked.material);
+    //   mat.emissiveColor = new Color3(0, 0, 0);
+    // }
     this.game.selectedObject = null;
     this.picked = null;
     this.pickedParent = null;
@@ -333,6 +344,13 @@ export class LaserPointer implements pfModule {
     this.picked = mesh;
     this.picked.edgesColor = Color4.FromColor3(Color3.Red());
     this.picked.enableEdgesRendering()
+
+    // Don't know where edgesRendering falls on the babylon render pipeline
+    // Doesn't appear to show up on my picture frames, so changing the material too
+    // if (this.picked.material) {
+    //   let mat = <StandardMaterial>(this.picked.material);
+    //   mat.emissiveColor = new Color3(200, 200, 200);
+    // }
     this.game.selectedObject = mesh;
     this.pickedParent = <Mesh>mesh.parent;
   }

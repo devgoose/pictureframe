@@ -1,4 +1,5 @@
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh";
 import { Scene } from "@babylonjs/core/scene";
 import {
   AssetsManager,
@@ -56,6 +57,10 @@ export class Testbed implements pfModule {
     worldTask.onSuccess = function (task) {
       task.loadedMeshes.forEach((mesh) => {
         //self.game.shadowGenerator!.getShadowMap()?.renderList?.push(mesh);
+
+        // Instanced meshes don't work with edges
+        let instance = <Mesh>mesh;
+        instance.edgesShareWithInstances = false;
 
         if (mesh.name === "__root__") {
           self.root = mesh;

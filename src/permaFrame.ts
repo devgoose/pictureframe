@@ -92,7 +92,15 @@ export class PermaFrame implements pfModule {
     viewportTexture.activeCamera = this.camera;
 
     // Change this so it doesn't include this mesh
-    viewportTexture.renderList = this.game.scene.meshes;
+    viewportTexture.renderList = []
+    this.game.scene.meshes.forEach((mesh) => {
+      if (mesh === this.plane ||
+        mesh === this.boundary ||
+        mesh.name === "camLaser") {
+      } else {
+        viewportTexture.renderList?.push(mesh);
+      }
+    });
 
     // First, create the actual frame mesh, and correctly set the UVs
     this.plane = new Mesh("permaFrame", scene, null, null, false);
