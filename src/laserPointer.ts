@@ -363,12 +363,11 @@ export class LaserPointer implements pfModule {
       return;
     }
 
-    console.log("drop");
-
-    if (this.game.selectedObject.physicsImpostor) {
-      console.log("waking up");
-      this.game.selectedObject.physicsImpostor.wakeUp();
-    }
+    this.game.scene.meshes.forEach(mesh => {
+      if (mesh.physicsImpostor) {
+        mesh.physicsImpostor.wakeUp();
+      }
+    });
 
     this.game.selectedObject.setParent(this.pickedParent);
     this.game.selectedObject.disableEdgesRendering();
@@ -387,14 +386,11 @@ export class LaserPointer implements pfModule {
     if (this.game.selectedObject) {
       return;
     }
-
-    console.log("pickup");
-
-
-    if (mesh.physicsImpostor) {
-      mesh.physicsImpostor.sleep();
-    }
-
+    this.game.scene.meshes.forEach(mesh => {
+      if (mesh.physicsImpostor) {
+        mesh.physicsImpostor.sleep();
+      }
+    });
     this.game.selectedObject = mesh;
     this.game.selectedObject = mesh;
     this.game.selectedObject.edgesColor = Color4.FromColor3(Color3.Red());
