@@ -63,7 +63,7 @@ export class LaserPointer implements pfModule {
 
     this.springLines = null;
     this.initPos = null;
-    this.springDeadzone = 0.08;
+    this.springDeadzone = 0.06;
     this.initDist = 0;
     this.springK = -0.1;
 
@@ -376,7 +376,6 @@ export class LaserPointer implements pfModule {
     this.pickedParent = null;
 
     this.initDist = 0;
-    this.initPos = null;
   }
 
 
