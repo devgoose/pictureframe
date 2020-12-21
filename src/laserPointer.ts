@@ -37,13 +37,13 @@ export class LaserPointer implements pfModule {
   private initY: number;
   private normX: number;
   private normY: number;
+  private selectedInitPos: Vector3;
 
   private stickThreshold: number;
   private stickDeadzone: number;
   private stickNeutral: boolean;
   private turnAngle: number;
 
-  private picked: AbstractMesh | null;
   private pickedParent: AbstractMesh | null;
 
   private pickedFrame: PermaFrame | null;
@@ -63,21 +63,21 @@ export class LaserPointer implements pfModule {
 
     this.springLines = null;
     this.initPos = null;
-    this.springDeadzone = 0.05;
+    this.springDeadzone = 0.06;
     this.initDist = 0;
-    this.springK = 0.2;
+    this.springK = -0.1;
 
     this.initX = 0;
     this.initY = 0;
     this.normX = 0;
     this.normY = 0;
+    this.selectedInitPos = new Vector3();
 
     this.stickThreshold = 0.5;
     this.stickDeadzone = 0.2;
     this.stickNeutral = true;
     this.turnAngle = 30;
 
-    this.picked = null;
     this.pickedParent = null;
 
     this.pickedFrame = null;
@@ -109,6 +109,7 @@ export class LaserPointer implements pfModule {
     this.frameLaser.position = this.laserOffset; // just puts it coming out of the finger
     this.frameLaser.isPickable = false;
     this.frameLaser.color = Color3.Green();
+    this.frameLaser.visibility = 0;
 
     this.springLines = Mesh.CreateLines(
       "springLines",
@@ -209,6 +210,9 @@ export class LaserPointer implements pfModule {
         this.laserPointer!.scaling = new Vector3(0.003, 0.003, this.maxTeleport);
       }
 
+      let nX = 0;
+      let nY = 0;
+
       if (this.pickedFrame) {
         if (pickInfo?.pickedPoint) {
           let hitPos = pickInfo!.pickedPoint?.clone();
@@ -226,9 +230,9 @@ export class LaserPointer implements pfModule {
           let topEdge = upperRight.subtract(upperLeft);
           let leftEdge = bottomLeft.subtract(upperLeft);
 
-          let nX = (Vector3.Dot(fromTopLeftToHit, topEdge.normalize()) /
+          nX = (Vector3.Dot(fromTopLeftToHit, topEdge.normalize()) /
             this.pickedFrame.getFrameInfo()!.width - 0.5) * 2;
-          let nY = (Vector3.Dot(fromTopLeftToHit, leftEdge.normalize()) /
+          nY = (Vector3.Dot(fromTopLeftToHit, leftEdge.normalize()) /
             this.pickedFrame.getFrameInfo()!.height - 0.5) * 2;
 
           this.normX = nX;
@@ -258,11 +262,13 @@ export class LaserPointer implements pfModule {
           // viewDir SHOULD be the direction from the camera to the object selected.
           let newRay = new Ray(camPos, viewDir);
           let newPickInfo = this.game.scene.pickWithRay(newRay, function (pick) {
-            if (!pick.isPickable || pick.name === "frameBoundary") {
+            if (!pick.isPickable || pick.name === "frameBoundary" || pick.name.startsWith("Ground")) {
               return false;
             }
             return true;
           });
+
+
 
           if (newPickInfo?.hit) {
             if (newPickInfo.pickedMesh) {
@@ -305,6 +311,14 @@ export class LaserPointer implements pfModule {
           else if (pickedMesh) {
             this.drop();
             this.pickup(pickedMesh);
+            this.initY = nY;
+            this.initX = nX;
+
+            let parent = pickedMesh.parent;
+            pickedMesh.setParent(null);
+
+            this.selectedInitPos = pickedMesh.position;
+            pickedMesh.setParent(parent);
           }
         }
 
@@ -345,7 +359,7 @@ export class LaserPointer implements pfModule {
   // Set pickedparent and picked back to null
   private drop(): void {
     // Can't drop if nothing is picked
-    if (!this.picked) {
+    if (!this.game.selectedObject) {
       return;
     }
 
@@ -355,22 +369,20 @@ export class LaserPointer implements pfModule {
       }
     });
 
-    this.picked.setParent(this.pickedParent);
-    this.picked.disableEdgesRendering();
+    this.game.selectedObject.setParent(this.pickedParent);
+    this.game.selectedObject.disableEdgesRendering();
 
     this.game.selectedObject = null;
-    this.picked = null;
     this.pickedParent = null;
 
     this.initDist = 0;
-    this.initPos = null;
   }
 
 
   // Deactivate physics impostor
   private pickup(mesh: AbstractMesh): void {
     // Can't pickup if already have something picked
-    if (this.picked) {
+    if (this.game.selectedObject) {
       return;
     }
     this.game.scene.meshes.forEach(mesh => {
@@ -378,11 +390,11 @@ export class LaserPointer implements pfModule {
         mesh.physicsImpostor.sleep();
       }
     });
-    this.picked = mesh;
-    this.picked.edgesColor = Color4.FromColor3(Color3.Red());
-    this.picked.enableEdgesRendering()
-    this.picked.edgesWidth = 2;
     this.game.selectedObject = mesh;
+    this.game.selectedObject = mesh;
+    this.game.selectedObject.edgesColor = Color4.FromColor3(Color3.Red());
+    this.game.selectedObject.enableEdgesRendering()
+    this.game.selectedObject.edgesWidth = 2;
     this.pickedParent = <Mesh>mesh.parent;
 
     // Init spring dist
@@ -399,8 +411,6 @@ export class LaserPointer implements pfModule {
 
       this.initPos = this.game.rightController?.pointer!.position!.clone()!;
       this.initDist = this.getDistToPlane(normal, point, this.initPos);
-      this.initX = this.normX;
-      this.initY = this.normY;
     }
   }
 
@@ -412,47 +422,49 @@ export class LaserPointer implements pfModule {
   }
 
   public update(): void {
-    this.updateTranslation();
     this.updateDepth();
+    this.updateTranslation();
+    if (this.game.selectedObject) {
+      this.game.selectedObject.physicsImpostor?.sleep();
+    }
   }
 
-  private updateTranslation(){
-    if(!this.game.selectedObject || !this.initPos){
+  private updateTranslation() {
+    if (!this.game.selectedObject) {
       return;
     }
 
     let frameInfo = this.pickedFrame!.getFrameInfo();
+    let camera = this.pickedFrame!.getCamera()!;
+
     // Get edge vectors of the frustum plane
-    let topEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(1, 0, 0)).normalize();
-    let sideEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 1, 0)).normalize();
-    let viewDir = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 0, 1)).normalize();
+    let right = camera.getDirection(new Vector3(1, 0, 0)).normalize();
+    let up = camera.getDirection(new Vector3(0, 1, 0)).normalize();
+    let viewDir = camera.getDirection(new Vector3(0, 0, 1)).normalize();
 
-    let worldTransform = this.game.selectedObject!.getWorldMatrix();
-    let pls = this.game.selectedObject.position;
-    pls = Vector3.TransformCoordinates(pls, worldTransform);
+    let parent = this.game.selectedObject.parent;
+    this.game.selectedObject.setParent(null);
 
-    let camToObject = pls.subtract(this.pickedFrame!.getCamera()!.position);
+    let camToObject = this.selectedInitPos.subtract(camera.position);
+
     let d = Vector3.Dot(camToObject, viewDir!);
 
-    let h = 2 * d * Math.tan(frameInfo!.fov/2);
-    let w = h * (frameInfo!.width/frameInfo!.height);
+    let h = 2 * d * Math.tan(frameInfo!.fov / 2);
+    let w = h * (frameInfo!.width / frameInfo!.height);
 
-    let dX = this.normX - this.initX;
-    let dY = this.normY - this.initY;
 
-    this.initX = this.normX;
-    this.initY = this.normY;
+    let objPos = this.selectedInitPos!
+      .add(up!.scale((this.normY - this.initY) * -h / 2))
+      .add(right!.scale((this.normX - this.initX) * w / 2));
 
-    let offsetX = topEdge!.scale(w * dX /2);
-    let offsetY = sideEdge!.scale(h * dY /2);
 
-    this.game.selectedObject.position.addInPlace(offsetX!);
-    this.game.selectedObject.position.addInPlace(offsetY!);
+    this.game.selectedObject.position = objPos;
+
+    this.game.selectedObject.setParent(parent);
   }
 
   private updateDepth(): void {
-    if (!this.game.selectedObject || !this.initPos) {
-      console.log("Depth not updating");
+    if (!this.game.selectedObject) {
       this.springLines!.visibility = 0;
       return;
     }
@@ -466,10 +478,10 @@ export class LaserPointer implements pfModule {
 
     // First, make plane equation from world coordinates and normal of frame
     let frameInfo = this.pickedFrame!.getFrameInfo();
-    let verts = frameInfo?.vertexData.positions;
+    let verts = frameInfo!.vertexData.positions;
     let worldTransform = this.pickedFrame!.getWorldTransform();
 
-    let normal = frameInfo?.normal;
+    let normal = frameInfo!.normal;
     let point = new Vector3(verts![0], verts![1], verts![2]);
 
     normal = Vector3.TransformCoordinates(normal!, worldTransform);
@@ -480,7 +492,7 @@ export class LaserPointer implements pfModule {
 
     this.springLines = Mesh.CreateLines(
       "springLines",
-      [this.initPos, controllerPos],
+      [this.initPos!, controllerPos],
       this.game.scene,
       undefined,
       this.springLines
@@ -502,9 +514,9 @@ export class LaserPointer implements pfModule {
 
     // Move selected object along frame's camera
     let viewDir = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 0, 1));
-    let offset = viewDir?.scale(this.springK * x * this.game.getDeltaTime())
+    let offset = viewDir?.scale(this.springK * x * this.game.getDeltaTime());
 
-    this.game.selectedObject.position.addInPlace(offset!);
+    this.selectedInitPos.addInPlace(offset!);
   }
 
   private getDistToPlane(N: Vector3, Q: Vector3, P: Vector3): number {
