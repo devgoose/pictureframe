@@ -427,7 +427,11 @@ export class LaserPointer implements pfModule {
     let sideEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 1, 0)).normalize();
     let viewDir = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 0, 1)).normalize();
 
-    let camToObject = this.game.selectedObject.position.subtract(this.pickedFrame!.getCamera()!.position);
+    let worldTransform = this.game.selectedObject!.getWorldMatrix();
+    let pls = this.game.selectedObject.position;
+    pls = Vector3.TransformCoordinates(pls, worldTransform);
+
+    let camToObject = pls.subtract(this.pickedFrame!.getCamera()!.position);
     let d = Vector3.Dot(camToObject, viewDir!);
 
     let h = 2 * d * Math.tan(frameInfo!.fov/2);
