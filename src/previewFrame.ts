@@ -280,7 +280,6 @@ export class previewFrame implements pfModule {
       }
     } else {
       if (this.isFramingGesture(leftController, rightController)) {
-        console.log("gesture made");
         this.gestureMade = true;
         this.framePreview!.visibility = 1;
       } else {
