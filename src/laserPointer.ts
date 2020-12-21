@@ -349,9 +349,11 @@ export class LaserPointer implements pfModule {
       return;
     }
 
-    if (this.picked.physicsImpostor) {
-      this.picked.physicsImpostor.wakeUp();
-    }
+    this.game.scene.meshes.forEach(mesh => {
+      if (mesh.physicsImpostor) {
+        mesh.physicsImpostor.wakeUp();
+      }
+    });
 
     this.picked.setParent(this.pickedParent);
     this.picked.disableEdgesRendering();
@@ -371,10 +373,11 @@ export class LaserPointer implements pfModule {
     if (this.picked) {
       return;
     }
-
-    if (mesh.physicsImpostor) {
-      mesh.physicsImpostor.sleep();
-    }
+    this.game.scene.meshes.forEach(mesh => {
+      if (mesh.physicsImpostor) {
+        mesh.physicsImpostor.sleep();
+      }
+    });
     this.picked = mesh;
     this.picked.edgesColor = Color4.FromColor3(Color3.Red());
     this.picked.enableEdgesRendering()
@@ -419,25 +422,15 @@ export class LaserPointer implements pfModule {
     }
 
     let frameInfo = this.pickedFrame!.getFrameInfo();
-    let verts = frameInfo?.vertexData.positions;
-    let worldTransform = this.pickedFrame!.getWorldTransform();
-
-    let normal = frameInfo?.normal;
-    let point = new Vector3(verts![0], verts![1], verts![2]);
-
-    normal = Vector3.TransformCoordinates(normal!, worldTransform);
-    point = Vector3.TransformCoordinates(point, worldTransform);
-    let controllerPos = this.game.rightController?.pointer!.position!;
-
     // Get edge vectors of the frustum plane
-    let topEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(1, 0, 0));
-    let sideEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 1, 0));
+    let topEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(1, 0, 0)).normalize();
+    let sideEdge = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 1, 0)).normalize();
     let viewDir = this.pickedFrame!.getCamera()?.getDirection(new Vector3(0, 0, 1)).normalize();
 
     let camToObject = this.game.selectedObject.position.subtract(this.pickedFrame!.getCamera()!.position);
     let d = Vector3.Dot(camToObject, viewDir!);
 
-    let h = 2 * d * Math.atan(frameInfo!.fov/2);
+    let h = 2 * d * Math.tan(frameInfo!.fov/2);
     let w = h * (frameInfo!.width/frameInfo!.height);
 
     let dX = this.normX - this.initX;
@@ -446,8 +439,8 @@ export class LaserPointer implements pfModule {
     this.initX = this.normX;
     this.initY = this.normY;
 
-    let offsetX = topEdge!.scale(w * dX/2);
-    let offsetY = sideEdge!.scale(h * dY/2);
+    let offsetX = topEdge!.scale(w * dX /2);
+    let offsetY = sideEdge!.scale(h * dY /2);
 
     this.game.selectedObject.position.addInPlace(offsetX!);
     this.game.selectedObject.position.addInPlace(offsetY!);
